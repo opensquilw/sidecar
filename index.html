@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<title>CarMate 車主通</title>
+<meta name="description" content="New-driver car companion for Hong Kong: engine oil guide, service records and reminders, petrol station and tyre services." />
+<meta name="theme-color" content="#0A0C10" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="CarMate" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="style.css?v=8" />
+</head>
+<body>
+
+<header class="app-header">
+  <h1 id="header-title" data-i18n="appTitle">車主通</h1>
+  <button id="lang-btn" class="lang-pill" aria-label="Language">EN</button>
+</header>
+
+<main id="main">
+
+  <!-- ===== HOME ===== -->
+  <section id="home-screen" class="screen">
+    <div id="home-nocar" class="card intro-card" hidden>
+      <h2 data-i18n="homeNoCarTitle">歡迎，新車主 👋</h2>
+      <p class="muted" data-i18n="homeNoCarBody"></p>
+      <button class="btn btn-primary" data-goto="car-screen" data-i18n="homeNoCarBtn">設定我部車</button>
+    </div>
+
+    <div id="home-car-card" class="car-card" hidden>
+      <div class="car-card-main">
+        <div class="car-card-name" id="hc-name">—</div>
+        <div class="car-card-sub" id="hc-sub"></div>
+      </div>
+      <div class="car-card-plate" id="hc-plate" hidden></div>
+    </div>
+
+    <div id="home-mileage" class="card mileage-card" hidden>
+      <div>
+        <div class="card-label" data-i18n="homeMileageTitle">現時里數</div>
+        <div class="mileage-value"><span id="hm-value">0</span> <span class="unit" data-i18n="unitKm">公里</span></div>
+      </div>
+      <button id="hm-update" class="btn btn-ghost" data-i18n="homeMileageUpdate">更新</button>
+    </div>
+
+    <div id="home-oil" class="card oil-card" hidden>
+      <div class="oil-card-head">
+        <span class="card-label" data-i18n="homeOilTitle">下次換機油</span>
+        <span id="ho-badge" class="badge"></span>
+      </div>
+      <div id="ho-body"></div>
+    </div>
+
+    <div id="home-spec" class="card spec-card" hidden>
+      <div class="card-label" data-i18n="homeSpecTitle">我部車用邊隻油</div>
+      <div id="hs-body"></div>
+    </div>
+
+    <h2 class="section-title" data-i18n="homeUpcomingTitle">跟進事項</h2>
+    <ul id="home-upcoming" class="record-list"></ul>
+    <p id="home-upcoming-empty" class="empty-msg" data-i18n="homeUpcomingEmpty" hidden></p>
+
+    <div class="section-head">
+      <h2 class="section-title" data-i18n="homeRecentTitle">最近記錄</h2>
+      <button class="link-btn" data-goto="log-screen" data-i18n="homeSeeAll">全部</button>
+    </div>
+    <ul id="home-recent" class="record-list"></ul>
+    <p id="home-recent-empty" class="empty-msg" data-i18n="homeRecentEmpty" hidden></p>
+
+    <h2 class="section-title" data-i18n="homeQuickTitle">新手快速指引</h2>
+    <div id="home-quick" class="quick-grid"></div>
+  </section>
+
+  <!-- ===== LOG ===== -->
+  <section id="log-screen" class="screen" hidden>
+    <h2 class="section-title" style="margin-top:0" data-i18n="logStatusTitle">各項到期情況</h2>
+    <div id="log-status" class="due-list"></div>
+    <p id="log-status-empty" class="empty-msg" data-i18n="logStatusEmpty" hidden></p>
+
+    <h2 class="section-title" data-i18n="logTitle">保養記錄</h2>
+    <div id="log-filter" class="chip-row"></div>
+    <ul id="log-list" class="record-list"></ul>
+    <p id="log-empty" class="empty-msg" data-i18n="logEmpty" hidden></p>
+  </section>
+
+  <!-- ===== RECORD FORM ===== -->
+  <section id="rec-form-screen" class="screen" hidden>
+    <form id="rec-form">
+      <h2 id="rec-form-title" data-i18n="recFormAdd">加一筆記錄</h2>
+
+      <label for="rf-type" data-i18n="fType">項目</label>
+      <select id="rf-type" required></select>
+
+      <div class="field-row">
+        <div class="field-col">
+          <label for="rf-date" data-i18n="fDate">日期</label>
+          <input id="rf-date" type="date" required />
+        </div>
+        <div class="field-col">
+          <label for="rf-mileage" data-i18n="fMileage">里數（公里）</label>
+          <input id="rf-mileage" type="number" min="0" step="1" inputmode="numeric" />
+        </div>
+      </div>
+      <p class="hint" data-i18n="fMileageHint"></p>
+
+      <div id="rf-oil-fields" hidden>
+        <div class="field-row">
+          <div class="field-col">
+            <label for="rf-oil-brand" data-i18n="fOilBrand">機油牌子</label>
+            <input id="rf-oil-brand" type="text" list="oil-brand-list" />
+            <datalist id="oil-brand-list"></datalist>
+          </div>
+          <div class="field-col">
+            <label for="rf-oil-grade" data-i18n="fOilGrade">機油標號</label>
+            <input id="rf-oil-grade" type="text" list="oil-grade-list" />
+            <datalist id="oil-grade-list">
+              <option value="0W-16"></option><option value="0W-20"></option>
+              <option value="5W-20"></option><option value="5W-30"></option>
+              <option value="5W-40"></option><option value="0W-40"></option>
+              <option value="10W-40"></option><option value="15W-40"></option>
+            </datalist>
+          </div>
+        </div>
+        <label for="rf-oil-kind" data-i18n="fOilKind">油種</label>
+        <select id="rf-oil-kind"></select>
+        <div class="checkbox-row">
+          <input id="rf-oil-filter" type="checkbox" checked />
+          <label for="rf-oil-filter" data-i18n="fOilFilter">同時換咗機油隔</label>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field-col">
+          <label for="rf-cost" data-i18n="fCost">費用（HK$）</label>
+          <input id="rf-cost" type="number" min="0" step="1" inputmode="decimal" />
+        </div>
+        <div class="field-col">
+          <label for="rf-shop" data-i18n="fShop">車房／地點</label>
+          <input id="rf-shop" type="text" />
+        </div>
+      </div>
+
+      <label for="rf-note" data-i18n="fNote">備註</label>
+      <textarea id="rf-note" rows="2"></textarea>
+
+      <div class="form-actions">
+        <button type="button" id="rec-cancel-btn" class="btn btn-secondary" data-i18n="btnCancel">取消</button>
+        <button type="submit" class="btn btn-primary" data-i18n="btnSave">儲存</button>
+      </div>
+      <button type="button" id="rec-delete-btn" class="btn btn-danger" data-i18n="btnDelete" hidden>刪除</button>
+    </form>
+  </section>
+
+  <!-- ===== LEARN ===== -->
+  <section id="learn-screen" class="screen" hidden>
+    <div class="seg-row" id="learn-tabs">
+      <button class="seg-btn active" data-tab="oil" data-i18n="learnOil">機油</button>
+      <button class="seg-btn" data-tab="station" data-i18n="learnStation">油站</button>
+      <button class="seg-btn" data-tab="tyre" data-i18n="learnTyre">車胎</button>
+      <button class="seg-btn" data-tab="sched" data-i18n="learnSched">週期</button>
+      <button class="seg-btn" data-tab="admin" data-i18n="learnAdmin">香港手續</button>
+    </div>
+    <p class="disclaimer" data-i18n="learnDisclaimer"></p>
+    <div id="learn-body"></div>
+  </section>
+
+  <!-- ===== STATION FORM ===== -->
+  <section id="st-form-screen" class="screen" hidden>
+    <form id="st-form">
+      <h2 id="st-form-title" data-i18n="stFormAdd">加油站</h2>
+
+      <label for="sf-name" data-i18n="fStName">名稱／位置</label>
+      <input id="sf-name" type="text" required />
+
+      <div class="field-row">
+        <div class="field-col">
+          <label for="sf-brand" data-i18n="fStBrand">品牌</label>
+          <select id="sf-brand"></select>
+        </div>
+        <div class="field-col">
+          <label for="sf-district" data-i18n="fStDistrict">地區</label>
+          <input id="sf-district" type="text" />
+        </div>
+      </div>
+
+      <label data-i18n="fStServices">有咩服務</label>
+      <div id="sf-services" class="check-grid"></div>
+
+      <label for="sf-note" data-i18n="fStNote">備註</label>
+      <textarea id="sf-note" rows="2"></textarea>
+
+      <div class="form-actions">
+        <button type="button" id="st-cancel-btn" class="btn btn-secondary" data-i18n="btnCancel">取消</button>
+        <button type="submit" class="btn btn-primary" data-i18n="btnSave">儲存</button>
+      </div>
+      <button type="button" id="st-delete-btn" class="btn btn-danger" data-i18n="btnDelete" hidden>刪除</button>
+    </form>
+  </section>
+
+  <!-- ===== MY CAR ===== -->
+  <section id="car-screen" class="screen" hidden>
+    <form id="car-form">
+      <h2 style="margin-top:0" data-i18n="carTitle">我的車</h2>
+
+      <h3 class="section-title" data-i18n="carSecBasic">基本資料</h3>
+      <div class="field-row">
+        <div class="field-col">
+          <label for="cf-nickname" data-i18n="fNickname">花名</label>
+          <input id="cf-nickname" type="text" />
+        </div>
+        <div class="field-col">
+          <label for="cf-plate" data-i18n="fPlate">車牌</label>
+          <input id="cf-plate" type="text" />
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-col">
+          <label for="cf-make" data-i18n="fMake">廠牌</label>
+          <input id="cf-make" type="text" />
+        </div>
+        <div class="field-col">
+          <label for="cf-model" data-i18n="fModel">型號</label>
+          <input id="cf-model" type="text" />
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-col">
+          <label for="cf-year" data-i18n="fYear">年份</label>
+          <input id="cf-year" type="number" min="1950" max="2100" step="1" inputmode="numeric" />
+        </div>
+        <div class="field-col">
+          <label for="cf-fuel" data-i18n="fFuel">燃料</label>
+          <select id="cf-fuel"></select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-col">
+          <label for="cf-engine" data-i18n="fEngine">引擎排氣量／型號</label>
+          <input id="cf-engine" type="text" />
+        </div>
+        <div class="field-col">
+          <label for="cf-firstreg" data-i18n="fFirstReg">首次登記日期</label>
+          <input id="cf-firstreg" type="date" />
+        </div>
+      </div>
+      <p class="hint" data-i18n="hintFirstReg"></p>
+
+      <label for="cf-mileage" data-i18n="fMileageNow">現時里數（公里）</label>
+      <input id="cf-mileage" type="number" min="0" step="1" inputmode="numeric" />
+
+      <h3 class="section-title" data-i18n="carSecOil">機油設定</h3>
+      <div class="field-row">
+        <div class="field-col">
+          <label for="cf-oilgrade" data-i18n="fOilGradeCar">機油標號</label>
+          <input id="cf-oilgrade" type="text" list="oil-grade-list" />
+        </div>
+        <div class="field-col">
+          <label for="cf-oilcap" data-i18n="fOilCapacity">換油容量（公升）</label>
+          <input id="cf-oilcap" type="number" min="0" step="0.1" inputmode="decimal" />
+        </div>
+      </div>
+      <p class="hint" data-i18n="hintOilGrade"></p>
+      <label for="cf-oilspec" data-i18n="fOilSpec">機油規格</label>
+      <input id="cf-oilspec" type="text" />
+      <p class="hint" data-i18n="hintOilSpec"></p>
+      <div class="field-row">
+        <div class="field-col">
+          <label for="cf-oilkm" data-i18n="fOilIntervalKm">換油周期（公里）</label>
+          <input id="cf-oilkm" type="number" min="1000" step="500" inputmode="numeric" />
+        </div>
+        <div class="field-col">
+          <label for="cf-oilmo" data-i18n="fOilIntervalMo">換油周期（月）</label>
+          <input id="cf-oilmo" type="number" min="1" max="36" step="1" inputmode="numeric" />
+        </div>
+      </div>
+      <p class="hint" data-i18n="hintInterval"></p>
+
+      <h3 class="section-title" data-i18n="carSecTyre">車胎</h3>
+      <label for="cf-tyresize" data-i18n="fTyreSize">車胎尺寸</label>
+      <input id="cf-tyresize" type="text" placeholder="205/55 R16 91V" />
+      <div class="field-row">
+        <div class="field-col">
+          <label for="cf-tyref" data-i18n="fTyreFront">前胎壓（psi）</label>
+          <input id="cf-tyref" type="number" min="10" max="80" step="1" inputmode="numeric" />
+        </div>
+        <div class="field-col">
+          <label for="cf-tyrer" data-i18n="fTyreRear">後胎壓（psi）</label>
+          <input id="cf-tyrer" type="number" min="10" max="80" step="1" inputmode="numeric" />
+        </div>
+      </div>
+      <p class="hint" data-i18n="hintTyrePressure"></p>
+
+      <h3 class="section-title" data-i18n="carSecAdmin">牌照與保險</h3>
+      <div class="field-row">
+        <div class="field-col">
+          <label for="cf-licence" data-i18n="fLicenceExp">牌照到期</label>
+          <input id="cf-licence" type="date" />
+        </div>
+        <div class="field-col">
+          <label for="cf-insurance" data-i18n="fInsuranceExp">保險到期</label>
+          <input id="cf-insurance" type="date" />
+        </div>
+      </div>
+      <label for="cf-inspection" data-i18n="fInspectionDue">下次驗車</label>
+      <input id="cf-inspection" type="date" />
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" data-i18n="btnSave">儲存</button>
+      </div>
+    </form>
+
+    <h3 class="section-title" data-i18n="carSecNotify">提醒</h3>
+    <p class="hint" data-i18n="notifyHint"></p>
+    <button id="cal-export-btn" class="btn btn-primary full" data-i18n="calExportBtn">加入手機日曆</button>
+    <div class="readout" style="margin-top:16px">
+      <span class="ro-k" data-i18n="notifEnableBtn">開啟開 App 提醒</span>
+      <span class="ro-dots"></span>
+      <span class="ro-v" id="notif-status">—</span>
+    </div>
+    <button id="notif-enable-btn" class="btn btn-secondary full" data-i18n="notifEnableBtn">開啟開 App 提醒</button>
+    <p class="hint" data-i18n="notifHint2"></p>
+
+    <h3 class="section-title" data-i18n="carSecApp">App 設定</h3>
+    <label data-i18n="settingsTheme">外觀</label>
+    <div class="seg-row">
+      <button id="theme-dark-btn" class="seg-btn" data-theme-btn="dark" data-i18n="themeDark">暗黑</button>
+      <button id="theme-light-btn" class="seg-btn" data-theme-btn="light" data-i18n="themeLight">光</button>
+      <button id="theme-macaron-btn" class="seg-btn" data-theme-btn="macaron" data-i18n="themeMacaron">馬卡龍</button>
+    </div>
+
+    <label data-i18n="settingsLanguage">語言</label>
+    <div class="seg-row">
+      <button id="lang-zh-btn" class="seg-btn" data-lang="zh">繁中</button>
+      <button id="lang-en-btn" class="seg-btn" data-lang="en">English</button>
+    </div>
+    <button id="export-btn" class="btn btn-secondary full" data-i18n="exportBtn">匯出資料（JSON）</button>
+
+    <div class="danger-zone">
+      <h3 data-i18n="dangerZone">危險區域</h3>
+      <button id="clear-data-btn" class="btn btn-danger" data-i18n="clearDataBtn">清除所有資料</button>
+    </div>
+    <p class="footnote" data-i18n="footnoteLocal"></p>
+  </section>
+
+</main>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-screen="home-screen">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 3 2 12h3v9h6v-6h2v6h6v-9h3z"/></svg>
+    <span data-i18n="navHome">主頁</span>
+  </button>
+  <button class="nav-btn" data-screen="log-screen">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M6 2h9l5 5v15H6zm8 1.5V8h4.5zM8 12h8v2H8zm0 4h8v2H8z"/></svg>
+    <span data-i18n="navLog">記錄</span>
+  </button>
+  <button class="fab" id="add-btn" aria-label="Add record">
+    <svg viewBox="0 0 24 24" width="26" height="26"><path fill="currentColor" d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2z"/></svg>
+  </button>
+  <button class="nav-btn" data-screen="learn-screen">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 3 1 8l11 5 9-4.09V17h2V8zM5 13.18v4L12 21l7-3.82v-4L12 17z"/></svg>
+    <span data-i18n="navLearn">學堂</span>
+  </button>
+  <button class="nav-btn" data-screen="car-screen">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11h.5A1.5 1.5 0 0 1 21 12.5V18h-3v-2H6v2H3v-5.5A1.5 1.5 0 0 1 4.5 11zm2.2-.5h9.6l-1-3H8.2zM7 15.5A1.25 1.25 0 1 0 5.75 14.25 1.25 1.25 0 0 0 7 15.5m10 0a1.25 1.25 0 1 0-1.25-1.25A1.25 1.25 0 0 0 17 15.5"/></svg>
+    <span data-i18n="navCar">我的車</span>
+  </button>
+</nav>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="data.js?v=8"></script>
+<script src="i18n.js?v=8"></script>
+<script src="app.js?v=8"></script>
+</body>
+</html>
