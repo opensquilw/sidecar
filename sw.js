@@ -1,14 +1,16 @@
-const CACHE_NAME = "sidecar-v9";
+const CACHE_NAME = "sidecar-v10";
 const ASSETS = [
   "./",
   "./index.html",
-  "./style.css?v=9",
-  "./i18n.js?v=9",
-  "./data.js?v=9",
-  "./app.js?v=9",
+  "./style.css?v=10",
+  "./i18n.js?v=10",
+  "./data.js?v=10",
+  "./app.js?v=10",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
+  "./icons/icon-maskable-192.png",
+  "./icons/apple-touch-icon.png",
 ];
 
 self.addEventListener("install", (event) => {

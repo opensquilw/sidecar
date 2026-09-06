@@ -1,65 +1,77 @@
+"""Sidecar 車伴 app icons — racing-red speedo dial.
+
+Rendered at 4x and downsampled for clean edges. Three output kinds:
+  * "any"      — rounded square, used in-browser and as the PWA icon
+  * "maskable" — full-bleed square with the dial inside the 80% safe zone,
+                 so Android can crop it to any shape without clipping the dial
+  * apple-touch — full-bleed square, no rounded corners (iOS applies its own mask)
+"""
 from PIL import Image, ImageDraw
+import math
 
-TOP = (26, 32, 40)
-BOT = (10, 12, 16)
+S = 4  # supersample factor
+
+BG_TOP  = (152, 28, 32)
+BG_BOT  = (84, 10, 16)
+ARC     = (255, 238, 208)   # cream sweep
+TRACK   = (112, 26, 30)     # unlit remainder of the dial
+HOT     = (38, 8, 10)       # red-line segment
+NEEDLE  = (255, 206, 80)    # amber needle + hub
+RING    = (198, 96, 92)     # outer bezel
 
 
-def make_icon(size, path, rounded=True):
-    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    for y in range(size):
-        t = y / size
-        r = int(TOP[0] + (BOT[0] - TOP[0]) * t)
-        g = int(TOP[1] + (BOT[1] - TOP[1]) * t)
-        b = int(TOP[2] + (BOT[2] - TOP[2]) * t)
-        draw.line([(0, y), (size, y)], fill=(r, g, b, 255))
-
-    radius = size * 0.22 if rounded else 0
-    mask = Image.new('L', (size, size), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, size, size], radius=radius, fill=255)
-    out = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+def _plate(n, radius_ratio):
+    """Vertical-gradient red plate, optionally rounded."""
+    img = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    for y in range(n):
+        t = y / n
+        d.line([(0, y), (n, y)],
+               fill=tuple(int(BG_TOP[i] + (BG_BOT[i] - BG_TOP[i]) * t) for i in range(3)) + (255,))
+    if radius_ratio <= 0:
+        return img
+    mask = Image.new("L", (n, n), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, n - 1, n - 1],
+                                           radius=int(n * radius_ratio), fill=255)
+    out = Image.new("RGBA", (n, n), (0, 0, 0, 0))
     out.paste(img, (0, 0), mask)
-
-    d = ImageDraw.Draw(out)
-    cx, cy = size / 2, size / 2
-    white = (245, 165, 36, 255)
-    amber = (245, 165, 36, 255)
-
-    # car body (side profile): lower slab + cabin
-    body_w = size * 0.66
-    body_h = size * 0.17
-    body_top = cy - size * 0.01
-    d.rounded_rectangle(
-        [cx - body_w / 2, body_top, cx + body_w / 2, body_top + body_h],
-        radius=body_h * 0.42, fill=white)
-
-    cabin_w = size * 0.40
-    cabin_h = size * 0.16
-    d.rounded_rectangle(
-        [cx - cabin_w / 2 - size * 0.02, body_top - cabin_h + size * 0.02,
-         cx + cabin_w / 2 - size * 0.02, body_top + size * 0.03],
-        radius=size * 0.06, fill=white)
-
-    # wheels
-    wr = size * 0.085
-    wy = body_top + body_h
-    for wx in (cx - body_w * 0.28, cx + body_w * 0.28):
-        d.ellipse([wx - wr, wy - wr * 0.75, wx + wr, wy + wr * 1.25], fill=white)
-        d.ellipse([wx - wr * 0.4, wy - wr * 0.15, wx + wr * 0.4, wy + wr * 0.65], fill=(10, 12, 16, 255))
-
-    # amber oil drop above the car
-    dr = size * 0.075
-    dtop = cy - size * 0.36
-    dbot = dtop + dr * 2.4
-    d.ellipse([cx + size * 0.16 - dr, dbot - dr * 1.5, cx + size * 0.16 + dr, dbot + dr * 0.5], fill=amber)
-    d.polygon([(cx + size * 0.16, dtop),
-               (cx + size * 0.16 - dr * 0.95, dbot - dr * 0.7),
-               (cx + size * 0.16 + dr * 0.95, dbot - dr * 0.7)], fill=amber)
-
-    out.save(path)
+    return out
 
 
-make_icon(192, 'icons/icon-192.png')
-make_icon(512, 'icons/icon-512.png')
-make_icon(180, 'icons/apple-touch-icon.png', rounded=False)
-print('icons generated')
+def _dial(d, cx, cy, r, n):
+    """Speedo dial. Stroke weights are deliberately heavy so the icon still
+    reads at ~60px on a homescreen."""
+    box = [cx - r, cy - r, cx + r, cy + r]
+    d.ellipse(box, outline=RING + (255,), width=max(1, int(n * 0.020)))
+    w = max(2, int(n * 0.075))
+    d.arc(box, 135, 300, fill=ARC + (255,), width=w)
+    d.arc(box, 300, 45, fill=HOT + (255,), width=w)
+    a = math.radians(255)
+    d.line([cx - r * 0.18 * math.cos(a), cy - r * 0.18 * math.sin(a),
+            cx + r * 0.78 * math.cos(a), cy + r * 0.78 * math.sin(a)],
+           fill=NEEDLE + (255,), width=max(2, int(n * 0.046)))
+    hr = n * 0.058
+    d.ellipse([cx - hr, cy - hr, cx + hr, cy + hr], fill=NEEDLE + (255,))
+
+
+def make(size, path, radius_ratio=0.22, dial_scale=0.335):
+    n = size * S
+    img = _plate(n, radius_ratio)
+    _dial(ImageDraw.Draw(img), n / 2, n / 2, n * dial_scale, n)
+    img = img.resize((size, size), Image.LANCZOS)
+    if radius_ratio <= 0:                       # opaque square for iOS / maskable
+        img = img.convert("RGB")
+    img.save(path)
+
+
+if __name__ == "__main__":
+    # rounded-square icons ("any" purpose)
+    for s in (1024, 512, 384, 256, 192, 128):
+        make(s, f"icons/icon-{s}.png")
+    # maskable: full bleed, dial pulled into the safe zone
+    for s in (512, 192):
+        make(s, f"icons/icon-maskable-{s}.png", radius_ratio=0, dial_scale=0.255)
+    # iOS home screen
+    make(180, "icons/apple-touch-icon.png", radius_ratio=0)
+    make(32, "icons/favicon-32.png", radius_ratio=0)
+    print("icons generated")
