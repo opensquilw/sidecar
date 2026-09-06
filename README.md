@@ -1,4 +1,4 @@
-# 車主通 · CarMate
+# 車伴 · Sidecar
 
 A bilingual (繁中 / English) offline-first PWA for new car owners in Hong Kong.
 

@@ -1,7 +1,7 @@
 {
-  "name": "CarMate 車主通 - Car Care & Records",
-  "short_name": "CarMate",
-  "description": "New-driver car companion for Hong Kong: engine oil guide, service records, oil-change reminders, petrol station and tyre services.",
+  "name": "Sidecar 車伴 - Car Care & Records",
+  "short_name": "Sidecar",
+  "description": "Car-care companion for new owners in Hong Kong: engine oil guide, service records, oil-change reminders, petrol station and tyre services.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

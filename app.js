@@ -1,4 +1,4 @@
-/* CarMate — everything is local to the device. No backend, no accounts. */
+/* Sidecar 車伴 — everything is local to the device. No backend, no accounts. */
 
 /* ---------- storage ---------- */
 const K = { car: "cm_car", recs: "cm_records", stations: "cm_stations", theme: "cm_theme" };
@@ -781,8 +781,8 @@ function nextAnniversary(iso) {
 }
 
 function carLabel() {
-  if (!car) return "CarMate";
-  return car.nickname || [car.make, car.model].filter(Boolean).join(" ") || "CarMate";
+  if (!car) return "Sidecar";
+  return car.nickname || [car.make, car.model].filter(Boolean).join(" ") || "Sidecar";
 }
 
 function buildICS(items) {
@@ -798,12 +798,12 @@ function buildICS(items) {
   };
   const ex = (v) => String(v).replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
 
-  const L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//CarMate//HK//EN",
+  const L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Sidecar//HK//EN",
              "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
   items.forEach((it) => {
     const summary = ex(carLabel() + " — " + it.title);
     L.push("BEGIN:VEVENT");
-    L.push("UID:" + it.id + "-" + dOnly(it.date) + "@carmate.local");
+    L.push("UID:" + it.id + "-" + dOnly(it.date) + "@sidecar.local");
     L.push("DTSTAMP:" + stamp);
     L.push("DTSTART;VALUE=DATE:" + dOnly(it.date));
     L.push("DTEND;VALUE=DATE:" + dayAfter(it.date));
@@ -827,7 +827,7 @@ function exportICS() {
   const blob = new Blob([buildICS(items)], { type: "text/calendar;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "carmate-reminders.ics";
+  a.download = "sidecar-reminders.ics";
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   toast(t("calDone"));
@@ -883,7 +883,7 @@ async function notifyIfDue(force) {
     body = LANG === "zh" ? `有 ${count} 項就快到期` : `${count} item(s) due soon`;
   }
 
-  const opts = { body, icon: "icons/icon-192.png", badge: "icons/icon-192.png", tag: "carmate-due" };
+  const opts = { body, icon: "icons/icon-192.png", badge: "icons/icon-192.png", tag: "sidecar-due" };
   try {
     const reg = navigator.serviceWorker && (await navigator.serviceWorker.getRegistration());
     if (reg && reg.showNotification) await reg.showNotification(t("notifTitle"), opts);
@@ -960,7 +960,7 @@ $("export-btn").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify({ car, records, stations }, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "carmate-backup.json";
+  a.download = "sidecar-backup.json";
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 });

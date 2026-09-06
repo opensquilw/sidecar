@@ -3,7 +3,7 @@
 
 const UI = {
   zh: {
-    appTitle: "車主通",
+    appTitle: "車伴",
     navHome: "主頁", navLog: "記錄", navLearn: "學堂", navCar: "我的車",
 
     /* home */
@@ -115,7 +115,7 @@ const UI = {
     notifStatusOff: "未開啟",
     notifBlocked: "已被封鎖 —— 要去手機設定開返",
     notifUnsupported: "呢個瀏覽器唔支援通知",
-    notifTitle: "車主通提醒",
+    notifTitle: "車伴提醒",
     notifNothing: "暫時冇嘢到期",
     settingsTheme: "色系",
     themeDark: "暗黑",
@@ -136,7 +136,7 @@ const UI = {
   },
 
   en: {
-    appTitle: "CarMate",
+    appTitle: "Sidecar",
     navHome: "Home", navLog: "Records", navLearn: "Learn", navCar: "My Car",
 
     homeNoCarTitle: "Welcome, new owner 👋",
@@ -242,7 +242,7 @@ const UI = {
     notifStatusOff: "Off",
     notifBlocked: "Blocked — turn it back on in phone settings",
     notifUnsupported: "This browser does not support notifications",
-    notifTitle: "CarMate reminder",
+    notifTitle: "Sidecar reminder",
     notifNothing: "Nothing due right now",
     settingsTheme: "Colour theme",
     themeDark: "Dark",
