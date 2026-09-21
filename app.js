@@ -233,13 +233,15 @@ function statusLabel(s) {
 
 /* ---------- navigation ---------- */
 let currentScreen = "home-screen";
-const SCREENS = ["onboard-screen", "home-screen", "log-screen", "rec-form-screen", "learn-screen", "st-form-screen", "car-screen"];
+const SCREENS = ["onboard-screen", "home-screen", "log-screen", "rec-form-screen", "learn-screen", "st-form-screen", "car-screen", "docs-screen", "doc-form-screen"];
+/* Sub-screens keep their parent tab lit in the nav. */
+const NAV_PARENT = { "docs-screen": "car-screen", "doc-form-screen": "car-screen" };
 
 function go(screen) {
   SCREENS.forEach((s) => { const el = $(s); if (el) el.hidden = s !== screen; });
   currentScreen = screen;
   document.querySelectorAll(".nav-btn").forEach((b) =>
-    b.classList.toggle("active", b.dataset.screen === screen));
+    b.classList.toggle("active", b.dataset.screen === (NAV_PARENT[screen] || screen)));
   /* First-run onboarding has nowhere useful to navigate to yet. */
   document.querySelector(".bottom-nav").hidden = screen === "onboard-screen" && obMode === "first";
   window.scrollTo(0, 0);
@@ -247,6 +249,7 @@ function go(screen) {
   if (screen === "log-screen") renderLog();
   if (screen === "learn-screen") renderLearn();
   if (screen === "car-screen") fillCarForm();
+  if (screen === "docs-screen") renderDocs();
 }
 
 /* ================= HOME ================= */
@@ -710,13 +713,23 @@ function learnAccidentHTML() {
   const numbers = `<div class="def-list">${A.numbers.map(([k, v]) =>
     `<div class="def-item"><div class="def-k" style="font-family:var(--mono);font-size:19px;letter-spacing:1px">${esc(k)}</div>
       <div class="def-v">${esc(v)}</div></div>`).join("")}</div>`;
-  return `<p class="muted" style="margin-top:0">${esc(A.lead)}</p>` +
+  const group = (title) => `<h3 class="section-title">${esc(title)}</h3>`;
+  return `<p class="muted" style="margin-top:0">${esc(A.lead)}</p>
+    <button type="button" class="btn btn-primary full" data-quick="docs" style="margin:0 0 6px">${esc(A.docsBtn)}</button>` +
+    group(A.minorGroup) +
     acc(A.stopTitle, steps(A.stop), true) +
+    group(A.crashGroup) +
+    acc(A.crashFirstTitle, steps(A.crashFirst)) +
+    acc(A.injuredTitle, defs(A.injured)) +
+    acc(A.hitRunTitle, defs(A.hitRun)) +
+    acc(A.crashAfterTitle, defs(A.crashAfter)) +
+    group(A.paperGroup) +
     acc(A.reportTitle, defs(A.report)) +
     acc(A.exchangeTitle, bullets(A.exchange)) +
     acc(A.photoTitle, bullets(A.photo)) +
     acc(A.dontTitle, defs(A.dont)) +
     acc(A.afterTitle, defs(A.after)) +
+    group(A.otherGroup) +
     acc(A.breakdownTitle, bullets(A.breakdown)) +
     acc(A.kitTitle, bullets(A.kit)) +
     acc(A.numbersTitle, numbers);
@@ -729,6 +742,157 @@ function learnRulesHTML() {
       `<div class="def-item"><div class="def-k">${esc(k)}</div><div class="def-v">${esc(v)}</div></div>`).join("")}</div>`, i === 0)).join("") +
     `<div class="note-box" style="margin-top:14px"><p style="margin:0">${esc(R.codeNote)}</p></div>`;
 }
+
+/* ================= DOCUMENTS ================= */
+/* Photos and PDFs live in IndexedDB (localStorage cannot hold binaries), keyed
+   by car. Images are downscaled to ~1800px JPEG before storing; a small JPEG
+   thumbnail is kept alongside so the grid never has to decode the full file. */
+const DOC_TYPES = ["insurance", "licence", "regDoc", "driving", "inspection", "id", "other"];
+const docTypeName = (id) => t("docType" + id.charAt(0).toUpperCase() + id.slice(1));
+const DOC_MAX = 15 * 1024 * 1024;
+
+function idb() {
+  return new Promise((res, rej) => {
+    if (!("indexedDB" in window)) return rej(new Error("no idb"));
+    const rq = indexedDB.open("sidecar", 1);
+    rq.onupgradeneeded = () => {
+      const db = rq.result;
+      if (!db.objectStoreNames.contains("docs")) db.createObjectStore("docs", { keyPath: "id" });
+    };
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+function idbReq(mode, fn) {
+  return idb().then((db) => new Promise((res, rej) => {
+    const tx = db.transaction("docs", mode);
+    const rq = fn(tx.objectStore("docs"));
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  }));
+}
+const docsAll = () => idbReq("readonly", (st) => st.getAll()).catch(() => []);
+const docPut = (d) => idbReq("readwrite", (st) => st.put(d));
+const docDel = (id) => idbReq("readwrite", (st) => st.delete(id));
+const docsForCar = async (carId) => (await docsAll()).filter((d) => d.carId === carId);
+async function docsDeleteForCar(carId) {
+  const ds = await docsForCar(carId);
+  for (const d of ds) await docDel(d.id);
+}
+
+async function compressImage(file) {
+  let bmp;
+  try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); }
+  catch { try { bmp = await createImageBitmap(file); } catch { return { blob: file, thumb: null, mime: file.type }; } }
+  const MAX = 1800;
+  const sc = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.86));
+  const ts = Math.min(1, 360 / Math.max(c.width, c.height));
+  const tc = document.createElement("canvas");
+  tc.width = Math.round(c.width * ts); tc.height = Math.round(c.height * ts);
+  tc.getContext("2d").drawImage(c, 0, 0, tc.width, tc.height);
+  return { blob, thumb: tc.toDataURL("image/jpeg", 0.7), mime: "image/jpeg" };
+}
+
+const fmtBytes = (n) => (n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB");
+
+async function renderDocs() {
+  if (!car) return;
+  $("docs-car-name").textContent = carName(car);
+  const ds = (await docsForCar(car.id)).sort((a, b) => (a.added < b.added ? 1 : -1));
+  $("docs-grid").innerHTML = ds.map((d) => `
+    <button type="button" class="doc-card" data-doc="${d.id}">
+      <div class="doc-thumb">${d.thumb ? `<img src="${d.thumb}" alt="">` : `<span class="pdf-badge">PDF</span>`}</div>
+      <div class="doc-card-body">
+        <div class="doc-card-type">${esc(docTypeName(d.type))}</div>
+        <div class="doc-card-sub">${esc([d.note, fmtDate(d.added), fmtBytes(d.size)].filter(Boolean).join(" \u00b7 "))}</div>
+      </div>
+    </button>`).join("");
+  $("docs-empty").hidden = ds.length > 0;
+}
+
+let pendingFile = null;   // { blob, thumb, mime, name, size }
+
+function openDocForm() {
+  pendingFile = null;
+  $("df-type").innerHTML = DOC_TYPES.map((id) => `<option value="${id}">${esc(docTypeName(id))}</option>`).join("");
+  $("df-note").value = "";
+  $("df-file").value = "";
+  $("df-picked").textContent = "";
+  $("df-preview").hidden = true;
+  $("df-preview").innerHTML = "";
+  $("doc-form-title").textContent = t("docFormAdd");
+  go("doc-form-screen");
+}
+
+async function onDocFilePicked(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  if (file.size > DOC_MAX) { toast(t("docTooBig")); e.target.value = ""; return; }
+  const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  if (isPdf) {
+    pendingFile = { blob: file, thumb: null, mime: "application/pdf", name: file.name, size: file.size };
+    $("df-preview").innerHTML = `<div class="doc-thumb" style="border:none"><span class="pdf-badge">PDF</span></div>`;
+  } else {
+    const c = await compressImage(file);
+    pendingFile = { blob: c.blob, thumb: c.thumb, mime: c.mime, name: file.name.replace(/\.[^.]+$/, "") + ".jpg", size: c.blob.size };
+    $("df-preview").innerHTML = `<img src="${c.thumb || URL.createObjectURL(c.blob)}" alt="">`;
+  }
+  $("df-preview").hidden = false;
+  $("df-picked").textContent = `${t("docPicked")} ${file.name} (${fmtBytes(pendingFile.size)})`;
+}
+
+async function saveDoc(e) {
+  e.preventDefault();
+  if (!pendingFile) { toast(t("docFileRequired")); return; }
+  const d = {
+    id: uid(), carId: car.id, type: $("df-type").value, note: $("df-note").value.trim(),
+    name: pendingFile.name, mime: pendingFile.mime, size: pendingFile.size,
+    blob: pendingFile.blob, thumb: pendingFile.thumb, added: todayISO(),
+  };
+  try {
+    await docPut(d);
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  } catch { toast(t("docStorageFail")); return; }
+  toast(t("docSaved"));
+  go("docs-screen");
+}
+
+let viewingDoc = null, viewingUrl = null;
+
+async function openDocViewer(id) {
+  const d = (await docsAll()).find((x) => x.id === id);
+  if (!d) return;
+  viewingDoc = d;
+  if (viewingUrl) URL.revokeObjectURL(viewingUrl);
+  viewingUrl = URL.createObjectURL(d.blob);
+  $("dv-title").textContent = docTypeName(d.type);
+  $("dv-sub").textContent = [d.note, fmtDate(d.added), fmtBytes(d.size)].filter(Boolean).join(" \u00b7 ");
+  const isPdf = d.mime === "application/pdf";
+  $("dv-body").innerHTML = isPdf ? `<span class="pdf-badge">PDF</span>` : `<img src="${viewingUrl}" alt="">`;
+  $("dv-open").hidden = !isPdf;
+  $("dv-open").href = viewingUrl;
+  $("dv-download").href = viewingUrl;
+  $("dv-download").download = d.name || (docTypeName(d.type) + (isPdf ? ".pdf" : ".jpg"));
+  $("doc-view-modal").hidden = false;
+}
+function closeDocViewer() {
+  $("doc-view-modal").hidden = true;
+  $("dv-body").innerHTML = "";
+  viewingDoc = null;
+}
+async function deleteViewingDoc() {
+  if (!viewingDoc || !confirm(t("docDeleteConfirm"))) return;
+  await docDel(viewingDoc.id);
+  closeDocViewer();
+  renderDocs();
+}
+
+/* Base64 for the JSON backup — a few hundred KB per photo is acceptable. */
+const blobToDataURL = (blob) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
 
 /* ================= ONBOARDING + CAR SWITCHER ================= */
 let obMode = "first";
@@ -791,6 +955,7 @@ function deleteActiveCar() {
   cars = cars.filter((c) => c.id !== id);
   records = records.filter((r) => r.carId !== id);
   save(K.recs, records);
+  docsDeleteForCar(id).catch(() => {});
   setActive(cars.length ? cars[0].id : null);
   persistCars();
   if (car) go("home-screen"); else openOnboard("first");
@@ -858,6 +1023,7 @@ function fillCarForm() {
   document.querySelectorAll("[data-lang]").forEach((b) => b.classList.toggle("active", b.dataset.lang === LANG));
   document.querySelectorAll("[data-theme-btn]").forEach((b) => b.classList.toggle("active", b.dataset.themeBtn === THEME));
   updateNotifUI();
+  if (car) docsForCar(car.id).then((ds) => { $("car-docs-count").textContent = ds.length ? `${ds.length} ${t("docsCount")}` : ""; });
 }
 
 function saveCar(e) {
@@ -1044,6 +1210,12 @@ document.addEventListener("click", (e) => {
   const btn = e.target.closest("button");
   if (!btn) return;
 
+  if (btn.id === "car-docs-btn") return go("docs-screen");
+  if (btn.id === "docs-add-btn") return openDocForm();
+  if (btn.dataset.doc) return openDocViewer(btn.dataset.doc);
+  if (btn.id === "dv-close") return closeDocViewer();
+  if (btn.id === "dv-delete") return deleteViewingDoc();
+  if (btn.id === "df-pick-btn") return $("df-file").click();
   if (btn.id === "home-car-card" || btn.id === "car-switch-btn") return openSwitcher();
   if (btn.id === "car-switch-close") return closeSwitcher();
   if (btn.id === "car-add-btn") { closeSwitcher(); return openOnboard("add"); }
@@ -1060,6 +1232,7 @@ document.addEventListener("click", (e) => {
   if (btn.id === "add-station-btn") return openStationForm(null);
 
   if (btn.dataset.quick) {
+    if (btn.dataset.quick === "docs") return go("docs-screen");
     const [, tab] = btn.dataset.quick.split(":");
     learnTab = tab;
     return go("learn-screen");
@@ -1099,6 +1272,9 @@ $("st-delete-btn").addEventListener("click", () => {
 });
 $("car-form").addEventListener("submit", saveCar);
 $("ob-form").addEventListener("submit", submitOnboard);
+$("doc-form").addEventListener("submit", saveDoc);
+$("doc-cancel-btn").addEventListener("click", () => go("docs-screen"));
+$("df-file").addEventListener("change", onDocFilePicked);
 $("ob-cancel-btn").addEventListener("click", () => go("home-screen"));
 $("delete-car-btn").addEventListener("click", deleteActiveCar);
 $("car-switch-modal").addEventListener("click", (e) => { if (e.target.id === "car-switch-modal") closeSwitcher(); });
@@ -1116,8 +1292,14 @@ $("hm-update").addEventListener("click", () => {
   toast(t("saved"));
 });
 
-$("export-btn").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify({ cars, activeId, records, stations }, null, 2)], { type: "application/json" });
+$("export-btn").addEventListener("click", async () => {
+  const ds = await docsAll();
+  const docs = [];
+  for (const d of ds) {
+    const { blob: b, thumb, ...meta } = d;
+    docs.push({ ...meta, data: await blobToDataURL(b) });
+  }
+  const blob = new Blob([JSON.stringify({ cars, activeId, records, stations, docs }, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "sidecar-backup.json";
@@ -1129,6 +1311,7 @@ $("clear-data-btn").addEventListener("click", () => {
   if (!confirm(t("clearConfirm"))) return;
   [K.cars, K.active, K.recs, K.stations, K.legacyCar, "cm_lastNotify"].forEach((k) => localStorage.removeItem(k));
   cars = []; records = []; stations = []; setActive(null);
+  docsAll().then((ds) => ds.forEach((d) => docDel(d.id))).catch(() => {});
   openOnboard("first");
 });
 

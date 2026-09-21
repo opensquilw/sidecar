@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 <link rel="icon" href="icons/icon-192.png" />
 <link rel="icon" sizes="32x32" href="icons/favicon-32.png" />
-<link rel="stylesheet" href="style.css?v=11" />
+<link rel="stylesheet" href="style.css?v=12" />
 </head>
 <body>
 
@@ -239,6 +239,41 @@
     </form>
   </section>
 
+  <!-- ===== DOCUMENTS ===== -->
+  <section id="docs-screen" class="screen" hidden>
+    <div class="section-head" style="margin-top:0">
+      <h2 style="margin:0"><span data-i18n="docsTitle">我的文件</span><span id="docs-car-name" class="title-tag"></span></h2>
+    </div>
+    <p class="hint" data-i18n="docsLead"></p>
+    <div id="docs-grid" class="docs-grid"></div>
+    <p id="docs-empty" class="empty-msg" data-i18n="docsEmpty" hidden></p>
+    <button id="docs-add-btn" class="btn btn-primary full" data-i18n="docsAdd">＋ 加文件</button>
+    <p class="footnote" data-i18n="docsNotBacked"></p>
+  </section>
+
+  <section id="doc-form-screen" class="screen" hidden>
+    <form id="doc-form">
+      <h2 id="doc-form-title" data-i18n="docFormAdd">加文件</h2>
+
+      <label for="df-type" data-i18n="fDocType">文件類型</label>
+      <select id="df-type"></select>
+
+      <label data-i18n="fDocFile">檔案</label>
+      <input id="df-file" type="file" accept="image/*,application/pdf" hidden />
+      <button type="button" id="df-pick-btn" class="btn btn-secondary full" style="margin:0 0 6px" data-i18n="docPick">影相／揀相／揀 PDF</button>
+      <p id="df-picked" class="hint"></p>
+      <div id="df-preview" class="doc-preview" hidden></div>
+
+      <label for="df-note" data-i18n="fDocNote">備註（可選）</label>
+      <input id="df-note" type="text" maxlength="80" />
+
+      <div class="form-actions">
+        <button type="button" id="doc-cancel-btn" class="btn btn-secondary" data-i18n="btnCancel">取消</button>
+        <button type="submit" class="btn btn-primary" data-i18n="btnSave">儲存</button>
+      </div>
+    </form>
+  </section>
+
   <!-- ===== MY CAR ===== -->
   <section id="car-screen" class="screen" hidden>
     <form id="car-form">
@@ -354,6 +389,11 @@
       </div>
     </form>
 
+    <h3 class="section-title" data-i18n="carSecDocs">文件</h3>
+    <button type="button" id="car-docs-btn" class="btn btn-secondary full" style="margin-top:0">
+      <span data-i18n="docsOpenBtn">我的文件</span> <span id="car-docs-count" class="title-tag"></span>
+    </button>
+
     <h3 class="section-title" data-i18n="carSecNotify">提醒</h3>
     <p class="hint" data-i18n="notifyHint"></p>
     <button id="cal-export-btn" class="btn btn-primary full" data-i18n="calExportBtn">加入手機日曆</button>
@@ -426,10 +466,30 @@
   </div>
 </div>
 
+<div id="doc-view-modal" class="modal doc-modal" hidden>
+  <div class="doc-view">
+    <div class="doc-view-head">
+      <div class="doc-view-meta">
+        <div class="doc-view-title" id="dv-title"></div>
+        <div class="doc-view-sub" id="dv-sub"></div>
+      </div>
+      <button class="icon-btn" id="dv-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.3 19.7l-1.42-1.41L9.17 12 2.88 5.71 4.3 4.29l6.29 6.3 6.29-6.3z"/></svg>
+      </button>
+    </div>
+    <div class="doc-view-body" id="dv-body"></div>
+    <div class="doc-view-actions">
+      <a id="dv-open" class="btn btn-secondary" target="_blank" rel="noopener" hidden data-i18n="docOpenPdf">開啟 PDF</a>
+      <a id="dv-download" class="btn btn-secondary" download data-i18n="docDownload">下載</a>
+      <button id="dv-delete" class="btn btn-danger" data-i18n="btnDelete">刪除</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast" hidden></div>
 
-<script src="data.js?v=11"></script>
-<script src="i18n.js?v=11"></script>
-<script src="app.js?v=11"></script>
+<script src="data.js?v=12"></script>
+<script src="i18n.js?v=12"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>
