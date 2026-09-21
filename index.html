@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 <link rel="icon" href="icons/icon-192.png" />
 <link rel="icon" sizes="32x32" href="icons/favicon-32.png" />
-<link rel="stylesheet" href="style.css?v=13" />
+<link rel="stylesheet" href="style.css?v=14" />
 </head>
 <body>
 
@@ -431,6 +431,15 @@
     <button id="notif-enable-btn" class="btn btn-secondary full" data-i18n="notifEnableBtn">開啟開 App 提醒</button>
     <p class="hint" data-i18n="notifHint2"></p>
 
+    <h3 class="section-title" data-i18n="settingsAi">AI 助手</h3>
+    <div class="readout readout-wrap">
+      <span class="ro-k" data-i18n="chatTitle">車伴助手</span>
+      <span class="ro-v" id="ai-status">—</span>
+    </div>
+    <label for="ai-endpoint" data-i18n="aiEndpointLabel">AI 伺服器網址（可選）</label>
+    <input id="ai-endpoint" type="url" placeholder="https://sidecar-ai.example.workers.dev" autocomplete="off" />
+    <p class="hint" data-i18n="aiEndpointHint"></p>
+
     <h3 class="section-title" data-i18n="settingsBackup">備份</h3>
     <button id="export-btn" class="btn btn-secondary full" style="margin-top:0" data-i18n="exportBtn">匯出資料（JSON）</button>
     <p class="hint" data-i18n="exportHint"></p>
@@ -480,6 +489,39 @@
   </div>
 </div>
 
+<button id="chat-fab" class="chat-fab" aria-label="Assistant" hidden>
+  <svg viewBox="0 0 24 24" width="26" height="26"><path fill="currentColor" d="M12 3C7 3 3 6.6 3 11c0 2.3 1.1 4.3 2.9 5.7L5 21l4.6-2.1c.8.2 1.6.3 2.4.3 5 0 9-3.6 9-8s-4-8-9-8zm-4 9.3a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm4 0a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm4 0a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z"/></svg>
+</button>
+
+<div id="chat-modal" class="modal chat-modal" hidden>
+  <div class="chat">
+    <div class="chat-head">
+      <div class="chat-head-meta">
+        <div class="chat-title" data-i18n="chatTitle">車伴助手</div>
+        <div class="chat-status" id="chat-status"></div>
+      </div>
+      <button class="icon-btn" id="chat-clear" aria-label="Clear" title="Clear">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6zm3-9h2v8H9zm4 0h2v8h-2zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+      </button>
+      <button class="icon-btn" id="chat-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.3 19.7l-1.42-1.41L9.17 12 2.88 5.71 4.3 4.29l6.29 6.3 6.29-6.3z"/></svg>
+      </button>
+    </div>
+    <div id="chat-emergency" class="chat-emergency" hidden>
+      <span data-i18n="chatEmergency">有人受傷、被困或者起火 —— 即刻打 999</span>
+      <a href="tel:999" class="btn btn-danger" data-i18n="chatCall999">打 999</a>
+    </div>
+    <div id="chat-log" class="chat-log"></div>
+    <div id="chat-chips" class="chat-chips"></div>
+    <form id="chat-form" class="chat-form">
+      <input id="chat-input" type="text" autocomplete="off" maxlength="2000" data-i18n-ph="chatPlaceholder" />
+      <button type="submit" id="chat-send" class="btn btn-primary" aria-label="Send">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 20v-6l8-2-8-2V4l19 8z"/></svg>
+      </button>
+    </form>
+  </div>
+</div>
+
 <div id="doc-view-modal" class="modal doc-modal" hidden>
   <div class="doc-view">
     <div class="doc-view-head">
@@ -502,8 +544,9 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="data.js?v=13"></script>
-<script src="i18n.js?v=13"></script>
-<script src="app.js?v=13"></script>
+<script src="config.js?v=14"></script>
+<script src="data.js?v=14"></script>
+<script src="i18n.js?v=14"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>

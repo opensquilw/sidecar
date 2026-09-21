@@ -1,0 +1,21 @@
+name = "sidecar-ai"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+[vars]
+# Only the published app may call this. Add "http://localhost:8913" while testing locally.
+ALLOWED_ORIGINS = "https://opensquilw.github.io"
+# The app's own guides, published with the app. The worker fetches and caches this
+# and loads it into the system prompt — so the AI answers from the same content
+# the 學堂 tab shows.
+REFERENCE_URL = "https://opensquilw.github.io/sidecar/reference.txt"
+MODEL = "claude-opus-5"
+EFFORT = "medium"          # low = faster/cheaper, high = more thorough
+DAILY_LIMIT = "60"         # messages per IP per day (only enforced if QUOTA is bound)
+
+# Optional per-IP daily quota. Create with:  wrangler kv namespace create QUOTA
+# then paste the id below and uncomment. Without it there is no rate limit
+# beyond the origin check.
+# [[kv_namespaces]]
+# binding = "QUOTA"
+# id = "PASTE_ID_HERE"

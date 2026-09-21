@@ -244,6 +244,7 @@ function go(screen) {
     b.classList.toggle("active", b.dataset.screen === (NAV_PARENT[screen] || screen)));
   /* First-run onboarding has nowhere useful to navigate to yet. */
   document.querySelector(".bottom-nav").hidden = screen === "onboard-screen" && obMode === "first";
+  $("chat-fab").hidden = (screen === "onboard-screen" && obMode === "first") || !$("chat-modal").hidden;
   window.scrollTo(0, 0);
   if (screen === "home-screen") renderHome();
   if (screen === "log-screen") renderLog();
@@ -257,6 +258,7 @@ function renderSettings() {
   document.querySelectorAll("[data-lang]").forEach((b) => b.classList.toggle("active", b.dataset.lang === LANG));
   document.querySelectorAll("[data-theme-btn]").forEach((b) => b.classList.toggle("active", b.dataset.themeBtn === THEME));
   updateNotifUI();
+  updateAiSettingsUI();
 }
 
 /* ================= HOME ================= */
@@ -901,6 +903,191 @@ async function deleteViewingDoc() {
 /* Base64 for the JSON backup — a few hundred KB per photo is acceptable. */
 const blobToDataURL = (blob) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
 
+/* ================= ASSISTANT ================= */
+/* Two modes behind one chatbox. With AI_ENDPOINT set (config.js, or the
+   override in settings) messages go to the worker and stream back. Without
+   it — or when the network fails, or the quota is hit — the same box answers
+   from the in-app guides via a keyword router, so a driver at a crash site
+   with no signal still gets the steps. */
+const CHAT_KEY = "cm_chat";
+let chat = load(CHAT_KEY, []);
+let chatBusy = false;
+
+const aiEndpoint = () => (localStorage.getItem("cm_ai_endpoint") || (typeof AI_ENDPOINT === "string" ? AI_ENDPOINT : "")).trim();
+const aiAvailable = () => !!aiEndpoint() && navigator.onLine;
+const persistChat = () => save(CHAT_KEY, chat.slice(-60));
+
+const EMERGENCY_RE = /傷|流血|昏|唔醒|冇知覺|被困|困住|着火|起火|冒煙|汽油味|injur|bleed|unconscious|trapped|fire|smoke|fuel smell|hurt|not breathing/i;
+
+/* Escape first, then a deliberately tiny markdown: **bold**, "- " / "1. " lists, paragraphs. */
+function mdToHtml(text) {
+  const lines = esc(text).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").split("\n");
+  let html = "", list = null;
+  const closeList = () => { if (list) { html += `</${list}>`; list = null; } };
+  for (const raw of lines) {
+    const line = raw.trim();
+    const ol = line.match(/^(\d+)[.、)]\s+(.*)/), ul = line.match(/^[-•]\s+(.*)/);
+    if (ol) { if (list !== "ol") { closeList(); html += "<ol>"; list = "ol"; } html += `<li>${ol[2]}</li>`; }
+    else if (ul) { if (list !== "ul") { closeList(); html += "<ul>"; list = "ul"; } html += `<li>${ul[1]}</li>`; }
+    else if (line === "") { closeList(); }
+    else { closeList(); html += `<p>${line}</p>`; }
+  }
+  closeList();
+  return html;
+}
+
+function carSummary() {
+  if (!car) return null;
+  const o = {};
+  ["nickname", "make", "model", "year", "mileage", "oilGrade", "oilSpec", "oilCapacity",
+   "tyreSize", "tyreFront", "tyreRear", "licenceExpiry", "insuranceExpiry", "fuel"].forEach((k) => {
+    if (car[k] != null && car[k] !== "") o[k] = car[k];
+  });
+  return o;
+}
+
+/* ---- offline router: question → guide section, rendered as short steps ---- */
+function localAnswer(q) {
+  const A = ACCIDENT_GUIDE[LANG], T = TYRE_GUIDE[LANG], R = TRAFFIC_RULES[LANG], S = STATION_SERVICES[LANG];
+  const zh = LANG === "zh";
+  const stripTags = (x) => String(x).replace(/<[^>]+>/g, "");
+  const kvSteps = (items, n) => items.slice(0, n || 6).map(([k, v], i) => `${i + 1}. **${stripTags(k)}** ${stripTags(v)}`).join("\n");
+  const bullets = (items, n) => items.slice(0, n || 6).map((x) => `- ${stripTags(x)}`).join("\n");
+  const more = "\n\n" + t("chatOfflineMore");
+
+  if (EMERGENCY_RE.test(q))
+    return `**${zh ? "即刻打 999。" : "Call 999 now."}**\n\n${kvSteps(A.injured)}${more}`;
+  if (/走咗|走佬|逃逸|hit.?and.?run|drove off|left the scene|ran away/i.test(q))
+    return `**${A.hitRunTitle}**\n${kvSteps(A.hitRun)}${more}`;
+  if (/撞|意外|碰|accident|crash|collision|bump|scrape/i.test(q))
+    return `**${A.stopTitle}**\n${kvSteps(A.stop)}\n\n**${A.reportTitle}**\n${kvSteps(A.report, 4)}${more}`;
+  if (/死火|壞車|爆胎|爆軚|唔着|breakdown|flat tyre|won.?t start|stalled/i.test(q))
+    return `**${A.breakdownTitle}**\n${bullets(A.breakdown)}${more}`;
+  if (/機油|換油|oil/i.test(q)) {
+    const mine = car && car.oilGrade
+      ? (zh ? `你部車嘅標號係 **${car.oilGrade}**${car.oilSpec ? `，規格 ${car.oilSpec}` : ""}。\n\n`
+            : `Your car takes **${car.oilGrade}**${car.oilSpec ? ` (${car.oilSpec})` : ""}.\n\n`) : "";
+    return `${mine}${kvSteps(CHOOSE_STEPS[LANG])}${more}`;
+  }
+  if (/胎|tyre|tire|打氣|psi|pressure/i.test(q)) {
+    const mine = car && (car.tyreFront || car.tyreRear)
+      ? (zh ? `你部車：前 ${car.tyreFront || "—"} / 後 ${car.tyreRear || "—"} psi。\n\n`
+            : `Your car: front ${car.tyreFront || "—"} / rear ${car.tyreRear || "—"} psi.\n\n`) : "";
+    return `${mine}${kvSteps(T.steps)}${more}`;
+  }
+  if (/油站|入油|petrol|station|95|98|octane|辛烷/i.test(q))
+    return `**${S.fuelTitle}**\n${bullets(S.fuel)}\n\n**${S.likely.title}**\n${kvSteps(S.likely.items, 4)}${more}`;
+  if (/驗車|牌費|續牌|牌照|保險到期|licen[cs]e|inspection|renew|insurance expir|paperwork/i.test(q))
+    return `${kvSteps(HK_ADMIN[LANG])}${more}`;
+  if (/守則|交通|罰|扣分|超速|紅燈|泊車|rule|speed|point|fine|park|p.?plate|p牌|demerit|dops/i.test(q)) {
+    const dops = R.sections.find((x) => /DOPS/i.test(x.title)) || R.sections[0];
+    return `**${R.sections[0].title}**\n${kvSteps(R.sections[0].items, 4)}\n\n**${dops.title}**\n${kvSteps(dops.items, 4)}${more}`;
+  }
+  return t("chatDefault");
+}
+
+function renderChat() {
+  const st = $("chat-status");
+  const on = aiAvailable();
+  st.textContent = on ? t("chatStatusAi") : t("chatStatusOffline");
+  st.className = "chat-status" + (on ? " on" : "");
+  st.title = on ? "" : t("chatStatusOfflineHint");
+
+  const log = $("chat-log");
+  const intro = `<div class="msg bot">${mdToHtml(t("chatIntro"))}${on ? "" : `<span class="msg-note">${esc(t("chatStatusOfflineHint"))}</span>`}</div>`;
+  log.innerHTML = intro + chat.map((m) => {
+    if (m.role === "user") return `<div class="msg user">${esc(m.content)}</div>`;
+    const note = m.note ? `<span class="msg-note">${esc(m.note)}</span>` : "";
+    return `<div class="msg bot${m.pending ? " pending" : ""}">${note}${mdToHtml(m.content || (m.pending ? t("chatThinking") : ""))}</div>`;
+  }).join("");
+  log.scrollTop = log.scrollHeight;
+
+  $("chat-chips").innerHTML = chat.length ? "" :
+    t("chatChips").map((c) => `<button type="button" class="chip" data-chip="${esc(c)}">${esc(c)}</button>`).join("");
+  $("chat-send").disabled = chatBusy;
+}
+
+function updateLastBubble() {
+  const last = $("chat-log").lastElementChild;
+  const m = chat[chat.length - 1];
+  if (!last || !m || m.role !== "assistant") return;
+  last.innerHTML = (m.note ? `<span class="msg-note">${esc(m.note)}</span>` : "") + mdToHtml(m.content || t("chatThinking"));
+  $("chat-log").scrollTop = $("chat-log").scrollHeight;
+}
+
+function openChat() {
+  renderChat();
+  $("chat-modal").hidden = false;
+  $("chat-fab").hidden = true;
+  setTimeout(() => $("chat-input").focus(), 80);
+}
+function closeChat() {
+  $("chat-modal").hidden = true;
+  $("chat-fab").hidden = currentScreen === "onboard-screen" && obMode === "first";
+}
+
+async function sendChat(text) {
+  text = String(text || "").trim();
+  if (!text || chatBusy) return;
+  chat.push({ role: "user", content: text });
+  if (EMERGENCY_RE.test(text)) $("chat-emergency").hidden = false;
+  const idx = chat.push({ role: "assistant", content: "", pending: true }) - 1;
+  chatBusy = true;
+  persistChat();
+  renderChat();
+
+  if (!aiAvailable()) {
+    chat[idx] = { role: "assistant", content: localAnswer(text), offline: true };
+    chatBusy = false; persistChat(); renderChat();
+    return;
+  }
+
+  try {
+    const history = chat.filter((m) => !m.pending && m.content).slice(-40).map(({ role, content }) => ({ role, content }));
+    const res = await fetch(aiEndpoint(), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ messages: history, lang: LANG, car: carSummary() }),
+    });
+    if (!res.ok || !res.body) throw new Error(res.status === 429 ? "quota" : "http " + res.status);
+
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n\n")) >= 0) {
+        const frame = buf.slice(0, i); buf = buf.slice(i + 2);
+        const line = frame.split("\n").find((l) => l.startsWith("data:"));
+        if (!line) continue;
+        let ev; try { ev = JSON.parse(line.slice(5)); } catch { continue; }
+        if (ev.t) { chat[idx].content += ev.t; updateLastBubble(); }
+        else if (ev.refusal) { chat[idx].content += "\n\n" + t("chatRefusal"); updateLastBubble(); }
+        else if (ev.error) throw new Error(ev.error);
+      }
+    }
+    if (!chat[idx].content.trim()) throw new Error("empty");
+  } catch (e) {
+    chat[idx] = { role: "assistant", content: localAnswer(text), offline: true,
+      note: String(e.message) === "quota" ? t("chatQuota") : t("chatFallback") };
+  }
+  delete chat[idx].pending;
+  chatBusy = false;
+  persistChat();
+  renderChat();
+}
+
+function updateAiSettingsUI() {
+  const el = $("ai-status"); if (!el) return;
+  const on = !!aiEndpoint();
+  el.textContent = on ? t("aiStatusOn") : t("aiStatusOff");
+  el.className = "ro-v" + (on ? "" : " dim");
+  $("ai-endpoint").value = localStorage.getItem("cm_ai_endpoint") || "";
+  $("ai-endpoint").placeholder = (typeof AI_ENDPOINT === "string" && AI_ENDPOINT) || "https://sidecar-ai.example.workers.dev";
+}
+
 /* ================= ONBOARDING + CAR SWITCHER ================= */
 let obMode = "first";
 
@@ -1214,6 +1401,13 @@ document.addEventListener("click", (e) => {
   const btn = e.target.closest("button");
   if (!btn) return;
 
+  if (btn.id === "chat-fab") return openChat();
+  if (btn.id === "chat-close") return closeChat();
+  if (btn.id === "chat-clear") {
+    if (!chat.length || confirm(t("chatClearConfirm"))) { chat = []; persistChat(); $("chat-emergency").hidden = true; renderChat(); }
+    return;
+  }
+  if (btn.dataset.chip) return sendChat(btn.dataset.chip);
   if (btn.id === "settings-btn") return go("settings-screen");
   if (btn.id === "car-docs-btn") return go("docs-screen");
   if (btn.id === "docs-add-btn") return openDocForm();
@@ -1277,6 +1471,19 @@ $("st-delete-btn").addEventListener("click", () => {
 $("car-form").addEventListener("submit", saveCar);
 $("ob-form").addEventListener("submit", submitOnboard);
 $("doc-form").addEventListener("submit", saveDoc);
+$("chat-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const v = $("chat-input").value; $("chat-input").value = "";
+  sendChat(v);
+});
+$("ai-endpoint").addEventListener("change", () => {
+  const v = $("ai-endpoint").value.trim();
+  if (v) localStorage.setItem("cm_ai_endpoint", v); else localStorage.removeItem("cm_ai_endpoint");
+  updateAiSettingsUI();
+  toast(t("saved"));
+});
+window.addEventListener("online", () => { if (!$("chat-modal").hidden) renderChat(); });
+window.addEventListener("offline", () => { if (!$("chat-modal").hidden) renderChat(); });
 $("doc-cancel-btn").addEventListener("click", () => go("docs-screen"));
 $("df-file").addEventListener("change", onDocFilePicked);
 $("ob-cancel-btn").addEventListener("click", () => go("home-screen"));
@@ -1313,7 +1520,8 @@ $("export-btn").addEventListener("click", async () => {
 
 $("clear-data-btn").addEventListener("click", () => {
   if (!confirm(t("clearConfirm"))) return;
-  [K.cars, K.active, K.recs, K.stations, K.legacyCar, "cm_lastNotify"].forEach((k) => localStorage.removeItem(k));
+  [K.cars, K.active, K.recs, K.stations, K.legacyCar, "cm_lastNotify", CHAT_KEY].forEach((k) => localStorage.removeItem(k));
+  chat = [];
   cars = []; records = []; stations = []; setActive(null);
   docsAll().then((ds) => ds.forEach((d) => docDel(d.id))).catch(() => {});
   openOnboard("first");
