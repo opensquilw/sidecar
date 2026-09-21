@@ -233,7 +233,7 @@ function statusLabel(s) {
 
 /* ---------- navigation ---------- */
 let currentScreen = "home-screen";
-const SCREENS = ["onboard-screen", "home-screen", "log-screen", "rec-form-screen", "learn-screen", "st-form-screen", "car-screen", "docs-screen", "doc-form-screen"];
+const SCREENS = ["onboard-screen", "home-screen", "log-screen", "rec-form-screen", "learn-screen", "st-form-screen", "car-screen", "docs-screen", "doc-form-screen", "settings-screen"];
 /* Sub-screens keep their parent tab lit in the nav. */
 const NAV_PARENT = { "docs-screen": "car-screen", "doc-form-screen": "car-screen" };
 
@@ -250,6 +250,13 @@ function go(screen) {
   if (screen === "learn-screen") renderLearn();
   if (screen === "car-screen") fillCarForm();
   if (screen === "docs-screen") renderDocs();
+  if (screen === "settings-screen") renderSettings();
+}
+
+function renderSettings() {
+  document.querySelectorAll("[data-lang]").forEach((b) => b.classList.toggle("active", b.dataset.lang === LANG));
+  document.querySelectorAll("[data-theme-btn]").forEach((b) => b.classList.toggle("active", b.dataset.themeBtn === THEME));
+  updateNotifUI();
 }
 
 /* ================= HOME ================= */
@@ -1020,9 +1027,6 @@ function fillCarForm() {
   $("cf-fuel").value = c.fuel || "petrol";
   $("cf-oilkm").placeholder = DEFAULT_OIL_KM;
   $("cf-oilmo").placeholder = DEFAULT_OIL_MO;
-  document.querySelectorAll("[data-lang]").forEach((b) => b.classList.toggle("active", b.dataset.lang === LANG));
-  document.querySelectorAll("[data-theme-btn]").forEach((b) => b.classList.toggle("active", b.dataset.themeBtn === THEME));
-  updateNotifUI();
   if (car) docsForCar(car.id).then((ds) => { $("car-docs-count").textContent = ds.length ? `${ds.length} ${t("docsCount")}` : ""; });
 }
 
@@ -1210,6 +1214,7 @@ document.addEventListener("click", (e) => {
   const btn = e.target.closest("button");
   if (!btn) return;
 
+  if (btn.id === "settings-btn") return go("settings-screen");
   if (btn.id === "car-docs-btn") return go("docs-screen");
   if (btn.id === "docs-add-btn") return openDocForm();
   if (btn.dataset.doc) return openDocViewer(btn.dataset.doc);
@@ -1251,7 +1256,6 @@ document.addEventListener("click", (e) => {
 });
 
 $("add-btn").addEventListener("click", () => openRecForm(null, logFilter !== "all" ? logFilter : "oil"));
-$("lang-btn").addEventListener("click", () => switchLang(LANG === "zh" ? "en" : "zh"));
 $("rf-type").addEventListener("change", toggleOilFields);
 $("rec-form").addEventListener("submit", saveRec);
 $("rec-cancel-btn").addEventListener("click", () => go(editingRec ? "log-screen" : "home-screen"));
@@ -1318,7 +1322,6 @@ $("clear-data-btn").addEventListener("click", () => {
 function switchLang(lang) {
   setLang(lang);
   applyI18n();
-  $("lang-btn").textContent = lang === "zh" ? "EN" : "中";
   document.querySelectorAll("[data-lang]").forEach((b) => b.classList.toggle("active", b.dataset.lang === lang));
   if (currentScreen === "onboard-screen") applyObText();
   go(currentScreen);
@@ -1342,7 +1345,6 @@ function applyTheme(theme) {
 applyTheme(THEME);
 setLang(LANG);
 applyI18n();
-$("lang-btn").textContent = LANG === "zh" ? "EN" : "中";
 if (car) go("home-screen"); else openOnboard("first");
 
 notifyIfDue(false);
