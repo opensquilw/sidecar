@@ -1,17 +1,62 @@
 /* Sidecar 車伴 — everything is local to the device. No backend, no accounts. */
 
 /* ---------- storage ---------- */
-const K = { car: "cm_car", recs: "cm_records", stations: "cm_stations", theme: "cm_theme" };
+const K = {
+  cars: "cm_cars", active: "cm_active", recs: "cm_records", stations: "cm_stations",
+  theme: "cm_theme", legacyCar: "cm_car",
+};
 
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const load = (k, fallback) => {
   try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? fallback : v; }
   catch { return fallback; }
 };
 const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
-let car = load(K.car, null);
+let cars = load(K.cars, []);
+let activeId = localStorage.getItem(K.active) || null;
 let records = load(K.recs, []);
 let stations = load(K.stations, []);
+
+/* v1 stored one car in cm_car and records carried no carId. Fold that into the
+   multi-car model once, then drop the old key. Nothing is deleted until the new
+   keys have been written. */
+(function migrate() {
+  const legacy = load(K.legacyCar, null);
+  if (legacy && !cars.length) {
+    legacy.id = legacy.id || uid();
+    cars = [legacy];
+    activeId = legacy.id;
+    records.forEach((r) => { if (!r.carId) r.carId = legacy.id; });
+    save(K.cars, cars);
+    save(K.recs, records);
+    localStorage.setItem(K.active, activeId);
+    localStorage.removeItem(K.legacyCar);
+  }
+  if (!activeId || !cars.some((c) => c.id === activeId)) activeId = cars[0] ? cars[0].id : null;
+  if (activeId) {
+    let dirty = false;
+    records.forEach((r) => { if (!r.carId) { r.carId = activeId; dirty = true; } });
+    if (dirty) save(K.recs, records);
+    localStorage.setItem(K.active, activeId);
+  }
+})();
+
+/* `car` is always the active car object — a live reference into `cars`. */
+let car = cars.find((c) => c.id === activeId) || null;
+
+function persistCars() {
+  save(K.cars, cars);
+  if (activeId) localStorage.setItem(K.active, activeId);
+}
+function setActive(id) {
+  activeId = id;
+  car = cars.find((c) => c.id === id) || null;
+  if (id) localStorage.setItem(K.active, id); else localStorage.removeItem(K.active);
+}
+/* Records for the active car only. */
+const recs = () => (car ? records.filter((r) => r.carId === car.id) : []);
+const carName = (c) => c.nickname || [c.make, c.model].filter(Boolean).join(" ") || t("carTitle");
 
 const DEFAULT_OIL_KM = 8000;
 const DEFAULT_OIL_MO = 12;
@@ -20,7 +65,6 @@ const DEFAULT_OIL_MO = 12;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 /* Local-calendar ISO date. toISOString() is UTC, which lands on the wrong day
    for a UTC+8 user for eight hours of every day. */
 const isoLocal = (d) => {
@@ -148,7 +192,7 @@ function intervalFor(typeId) {
 }
 
 function lastRecord(typeId) {
-  return records
+  return recs()
     .filter((r) => r.type === typeId)
     .sort((a, b) => (a.date < b.date ? 1 : -1))[0] || null;
 }
@@ -189,13 +233,15 @@ function statusLabel(s) {
 
 /* ---------- navigation ---------- */
 let currentScreen = "home-screen";
-const SCREENS = ["home-screen", "log-screen", "rec-form-screen", "learn-screen", "st-form-screen", "car-screen"];
+const SCREENS = ["onboard-screen", "home-screen", "log-screen", "rec-form-screen", "learn-screen", "st-form-screen", "car-screen"];
 
 function go(screen) {
   SCREENS.forEach((s) => { const el = $(s); if (el) el.hidden = s !== screen; });
   currentScreen = screen;
   document.querySelectorAll(".nav-btn").forEach((b) =>
     b.classList.toggle("active", b.dataset.screen === screen));
+  /* First-run onboarding has nowhere useful to navigate to yet. */
+  document.querySelector(".bottom-nav").hidden = screen === "onboard-screen" && obMode === "first";
   window.scrollTo(0, 0);
   if (screen === "home-screen") renderHome();
   if (screen === "log-screen") renderLog();
@@ -205,7 +251,8 @@ function go(screen) {
 
 /* ================= HOME ================= */
 function renderHome() {
-  const hasCar = !!car;
+  if (!car) { openOnboard("first"); return; }
+  const hasCar = true;
   $("home-nocar").hidden = hasCar;
   $("home-car-card").hidden = !hasCar;
   $("home-mileage").hidden = !hasCar;
@@ -222,6 +269,7 @@ function renderHome() {
     $("hc-sub").textContent = subBits.join(" · ");
     $("hc-plate").hidden = !car.plate;
     $("hc-plate").textContent = car.plate || "";
+    $("hc-switch").hidden = false;
 
     $("hm-value").textContent = car.mileage != null && car.mileage !== "" ? nf(car.mileage) : "—";
     renderOilCard();
@@ -230,7 +278,7 @@ function renderHome() {
 
   renderUpcoming();
 
-  const recent = [...records].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 4);
+  const recent = [...recs()].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 4);
   $("home-recent").innerHTML = recent.map(recordItemHTML).join("");
   $("home-recent-empty").hidden = recent.length > 0;
 
@@ -407,14 +455,15 @@ function renderLog() {
   }).join("");
   $("log-status-empty").hidden = dues.length > 0;
 
-  const used = [...new Set(records.map((r) => r.type))];
+  $("log-car-name").textContent = car ? carName(car) : "";
+  const used = [...new Set(recs().map((r) => r.type))];
   $("log-filter").innerHTML =
     `<button class="chip ${logFilter === "all" ? "active" : ""}" data-filter="all">${esc(t("logFilterAll"))}</button>` +
     SERVICE_TYPES.filter((st) => used.includes(st.id))
       .map((st) => `<button class="chip ${logFilter === st.id ? "active" : ""}" data-filter="${st.id}">${esc(st[LANG])}</button>`)
       .join("");
 
-  const list = records
+  const list = recs()
     .filter((r) => logFilter === "all" || r.type === logFilter)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
   $("log-list").innerHTML = list.map(recordItemHTML).join("");
@@ -473,6 +522,7 @@ function saveRec(e) {
     rec.oilKind = $("rf-oil-kind").value;
     rec.oilFilter = $("rf-oil-filter").checked;
   }
+  rec.carId = editingRec ? (editingRec.carId || car.id) : car.id;
   if (editingRec) records = records.map((x) => (x.id === rec.id ? rec : x));
   else records.push(rec);
   save(K.recs, records);
@@ -480,7 +530,7 @@ function saveRec(e) {
   /* A newer odometer reading is worth keeping on the car itself. */
   if (mileage != null && car && (car.mileage == null || mileage > Number(car.mileage))) {
     car.mileage = mileage;
-    save(K.car, car);
+    persistCars();
   }
   toast(t("saved"));
   go("log-screen");
@@ -497,7 +547,9 @@ function renderLearn() {
     learnTab === "oil" ? learnOilHTML() :
     learnTab === "station" ? learnStationHTML() :
     learnTab === "tyre" ? learnTyreHTML() :
-    learnTab === "sched" ? learnSchedHTML() : learnAdminHTML();
+    learnTab === "sched" ? learnSchedHTML() :
+    learnTab === "accident" ? learnAccidentHTML() :
+    learnTab === "rules" ? learnRulesHTML() : learnAdminHTML();
 }
 
 function acc(title, inner, open) {
@@ -648,6 +700,102 @@ function learnAdminHTML() {
     <button class="btn btn-secondary full" data-goto="car-screen">${esc(LANG === "zh" ? "去填到期日" : "Add the expiry dates")}</button>`;
 }
 
+function learnAccidentHTML() {
+  const A = ACCIDENT_GUIDE[LANG];
+  const defs = (items) => `<div class="def-list">${items.map(([k, v]) =>
+    `<div class="def-item"><div class="def-k">${esc(k)}</div><div class="def-v">${esc(v)}</div></div>`).join("")}</div>`;
+  const bullets = (items) => `<ul class="bullets">${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`;
+  const steps = (items) => `<ol class="step-list">${items.map(([k, v]) =>
+    `<li><span class="st-title">${esc(k)}</span><span class="st-body">${esc(v)}</span></li>`).join("")}</ol>`;
+  const numbers = `<div class="def-list">${A.numbers.map(([k, v]) =>
+    `<div class="def-item"><div class="def-k" style="font-family:var(--mono);font-size:19px;letter-spacing:1px">${esc(k)}</div>
+      <div class="def-v">${esc(v)}</div></div>`).join("")}</div>`;
+  return `<p class="muted" style="margin-top:0">${esc(A.lead)}</p>` +
+    acc(A.stopTitle, steps(A.stop), true) +
+    acc(A.reportTitle, defs(A.report)) +
+    acc(A.exchangeTitle, bullets(A.exchange)) +
+    acc(A.photoTitle, bullets(A.photo)) +
+    acc(A.dontTitle, defs(A.dont)) +
+    acc(A.afterTitle, defs(A.after)) +
+    acc(A.breakdownTitle, bullets(A.breakdown)) +
+    acc(A.kitTitle, bullets(A.kit)) +
+    acc(A.numbersTitle, numbers);
+}
+
+function learnRulesHTML() {
+  const R = TRAFFIC_RULES[LANG];
+  return `<p class="muted" style="margin-top:0">${esc(R.lead)}</p>` +
+    R.sections.map((sec, i) => acc(sec.title, `<div class="def-list">${sec.items.map(([k, v]) =>
+      `<div class="def-item"><div class="def-k">${esc(k)}</div><div class="def-v">${esc(v)}</div></div>`).join("")}</div>`, i === 0)).join("") +
+    `<div class="note-box" style="margin-top:14px"><p style="margin:0">${esc(R.codeNote)}</p></div>`;
+}
+
+/* ================= ONBOARDING + CAR SWITCHER ================= */
+let obMode = "first";
+
+function applyObText() {
+  $("ob-title").textContent = obMode === "add" ? t("obAddTitle") : t("obTitle");
+  $("ob-lead").textContent = obMode === "add" ? t("obAddLead") : t("obLead");
+  $("ob-cancel-btn").hidden = obMode !== "add";
+}
+
+function openOnboard(mode) {
+  obMode = mode;
+  applyObText();
+  ["ob-name", "ob-make", "ob-model", "ob-mileage"].forEach((id) => { $(id).value = ""; });
+  go("onboard-screen");
+  setTimeout(() => $("ob-name").focus(), 60);
+}
+
+function submitOnboard(e) {
+  e.preventDefault();
+  const name = $("ob-name").value.trim();
+  if (!name) { toast(t("obNameRequired")); $("ob-name").focus(); return; }
+  const c = {
+    id: uid(),
+    nickname: name,
+    make: $("ob-make").value.trim() || null,
+    model: $("ob-model").value.trim() || null,
+    mileage: $("ob-mileage").value.trim() === "" ? null : Number($("ob-mileage").value),
+    fuel: "petrol",
+  };
+  cars.push(c);
+  setActive(c.id);
+  persistCars();
+  toast(t("saved"));
+  go("home-screen");
+}
+
+function renderSwitcher() {
+  $("car-switch-list").innerHTML = cars.map((c) => {
+    const mm = [c.make, c.model].filter(Boolean).join(" ");
+    const sub = [c.nickname ? mm : "", c.year, c.mileage != null ? nf(c.mileage) + " km" : ""]
+      .filter(Boolean).join(" \u00b7 ");
+    const active = c.id === activeId;
+    return `<li><button type="button" class="record-item car-row${active ? " active" : ""}" data-switch-car="${c.id}">
+      <span class="rec-icon plate">${esc(c.plate || "\u2014")}</span>
+      <span class="rec-main"><span class="rec-title">${esc(carName(c))}</span>
+        <span class="rec-sub">${esc(sub)}</span></span>
+      ${active ? `<span class="badge">${esc(t("switchActive"))}</span>` : ""}
+    </button></li>`;
+  }).join("");
+}
+function openSwitcher() { renderSwitcher(); $("car-switch-modal").hidden = false; }
+function closeSwitcher() { $("car-switch-modal").hidden = true; }
+
+function deleteActiveCar() {
+  if (!car) return;
+  const msg = cars.length === 1 ? t("deleteCarLast") + "\n\n" + t("deleteCarConfirm") : t("deleteCarConfirm");
+  if (!confirm(msg)) return;
+  const id = car.id;
+  cars = cars.filter((c) => c.id !== id);
+  records = records.filter((r) => r.carId !== id);
+  save(K.recs, records);
+  setActive(cars.length ? cars[0].id : null);
+  persistCars();
+  if (car) go("home-screen"); else openOnboard("first");
+}
+
 /* ================= STATION FORM ================= */
 let editingStation = null;
 
@@ -714,14 +862,14 @@ function fillCarForm() {
 
 function saveCar(e) {
   e.preventDefault();
-  const c = car || {};
+  const c = car || { id: uid(), fuel: "petrol" };
   CAR_FIELDS.forEach(([el, key]) => {
     const v = $(el).value.trim();
     c[key] = v === "" ? null : ($(el).type === "number" ? Number(v) : v);
   });
   c.fuel = $("cf-fuel").value;
-  car = c;
-  save(K.car, car);
+  if (!car) { c.id = c.id || uid(); cars.push(c); setActive(c.id); }
+  persistCars();
   toast(t("saved"));
   go("home-screen");
 }
@@ -896,6 +1044,14 @@ document.addEventListener("click", (e) => {
   const btn = e.target.closest("button");
   if (!btn) return;
 
+  if (btn.id === "home-car-card" || btn.id === "car-switch-btn") return openSwitcher();
+  if (btn.id === "car-switch-close") return closeSwitcher();
+  if (btn.id === "car-add-btn") { closeSwitcher(); return openOnboard("add"); }
+  if (btn.dataset.switchCar) {
+    setActive(btn.dataset.switchCar);
+    closeSwitcher();
+    return go(currentScreen);
+  }
   if (btn.dataset.screen) return go(btn.dataset.screen);
   if (btn.dataset.goto) return go(btn.dataset.goto);
   if (btn.dataset.addtype) return openRecForm(null, btn.dataset.addtype);
@@ -942,6 +1098,10 @@ $("st-delete-btn").addEventListener("click", () => {
   go("learn-screen");
 });
 $("car-form").addEventListener("submit", saveCar);
+$("ob-form").addEventListener("submit", submitOnboard);
+$("ob-cancel-btn").addEventListener("click", () => go("home-screen"));
+$("delete-car-btn").addEventListener("click", deleteActiveCar);
+$("car-switch-modal").addEventListener("click", (e) => { if (e.target.id === "car-switch-modal") closeSwitcher(); });
 $("cal-export-btn").addEventListener("click", exportICS);
 $("notif-enable-btn").addEventListener("click", enableNotifications);
 
@@ -951,13 +1111,13 @@ $("hm-update").addEventListener("click", () => {
   const n = Number(v);
   if (isNaN(n) || n < 0) return;
   car.mileage = n;
-  save(K.car, car);
+  persistCars();
   renderHome();
   toast(t("saved"));
 });
 
 $("export-btn").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify({ car, records, stations }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ cars, activeId, records, stations }, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "sidecar-backup.json";
@@ -967,9 +1127,9 @@ $("export-btn").addEventListener("click", () => {
 
 $("clear-data-btn").addEventListener("click", () => {
   if (!confirm(t("clearConfirm"))) return;
-  [K.car, K.recs, K.stations].forEach((k) => localStorage.removeItem(k));
-  car = null; records = []; stations = [];
-  go("home-screen");
+  [K.cars, K.active, K.recs, K.stations, K.legacyCar, "cm_lastNotify"].forEach((k) => localStorage.removeItem(k));
+  cars = []; records = []; stations = []; setActive(null);
+  openOnboard("first");
 });
 
 function switchLang(lang) {
@@ -977,6 +1137,7 @@ function switchLang(lang) {
   applyI18n();
   $("lang-btn").textContent = lang === "zh" ? "EN" : "中";
   document.querySelectorAll("[data-lang]").forEach((b) => b.classList.toggle("active", b.dataset.lang === lang));
+  if (currentScreen === "onboard-screen") applyObText();
   go(currentScreen);
 }
 
@@ -999,7 +1160,7 @@ applyTheme(THEME);
 setLang(LANG);
 applyI18n();
 $("lang-btn").textContent = LANG === "zh" ? "EN" : "中";
-go("home-screen");
+if (car) go("home-screen"); else openOnboard("first");
 
 notifyIfDue(false);
 

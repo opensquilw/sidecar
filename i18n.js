@@ -6,6 +6,32 @@ const UI = {
     appTitle: "車伴",
     navHome: "主頁", navLog: "記錄", navLearn: "學堂", navCar: "我的車",
 
+    /* onboarding */
+    obTitle: "歡迎用車伴 👋",
+    obLead: "先幫你部車改個名。其他資料之後喺「我的車」慢慢補都得。",
+    obAddTitle: "加多一部車",
+    obAddLead: "改個名就可以開始記錄。每部車嘅記錄同提醒都係分開計嘅。",
+    obNameLabel: "部車叫咩名？",
+    obNamePh: "例如：小白、阿黑、老婆架車",
+    obMakeLabel: "廠牌（可選）",
+    obModelLabel: "型號（可選）",
+    obMileageLabel: "現時里數（可選）",
+    obStart: "開始",
+    obCancel: "取消",
+    obNameRequired: "畀個名先",
+
+    /* car switcher */
+    switchTitle: "揀車",
+    switchAdd: "＋ 加多一部車",
+    switchActive: "使用中",
+    switchHint: "撳一下就轉。每部車嘅記錄、提醒同設定都係獨立嘅。",
+    homeSwitchBtn: "切換",
+    recordsFor: "記錄 ·",
+    deleteCarBtn: "刪除呢部車",
+    deleteCarConfirm: "確定刪除呢部車同佢所有記錄？呢個動作冇得返轉頭。",
+    deleteCarLast: "呢個係你唯一一部車。刪除之後會返回開始頁。",
+    carSwitchBtn: "轉去另一部車",
+
     /* home */
     homeNoCarTitle: "歡迎，新車主 👋",
     homeNoCarBody: "先入返部車嘅資料，之後換油提醒同保養記錄就會自動計。唔記得咗某啲欄位？留空都得，遲啲補返。",
@@ -35,6 +61,8 @@ const UI = {
     homeQuick: [
       ["換油點揀？", "learn:oil"],
       ["點打氣？", "learn:tyre"],
+      ["撞車點算？", "learn:accident"],
+      ["新手交通守則", "learn:rules"],
       ["油站有咩服務？", "learn:station"],
       ["幾時要驗車續牌？", "learn:admin"],
     ],
@@ -61,7 +89,8 @@ const UI = {
     oilKindNone: "唔記得／未填",
 
     /* learn */
-    learnOil: "機油", learnStation: "油站", learnTyre: "車胎", learnSched: "週期", learnAdmin: "香港手續",
+    learnOil: "機油", learnStation: "油站", learnTyre: "車胎", learnSched: "週期", learnAdmin: "手續",
+    learnAccident: "意外", learnRules: "守則",
     learnDisclaimer: "呢度嘅嘢係一般指引。你部車嘅車主手冊永遠大過呢個 App —— 有衝突就跟手冊，唔肯定就問師傅。",
     oilSecViscosity: "睇懂標號",
     oilSecTypes: "三種機油",
@@ -139,6 +168,30 @@ const UI = {
     appTitle: "Sidecar",
     navHome: "Home", navLog: "Records", navLearn: "Learn", navCar: "My Car",
 
+    obTitle: "Welcome to Sidecar 👋",
+    obLead: "Give your car a name first. Everything else can be filled in later under My Car.",
+    obAddTitle: "Add another car",
+    obAddLead: "Name it and you can start logging. Each car keeps its own records and reminders.",
+    obNameLabel: "What do you call your car?",
+    obNamePh: "e.g. Whitey, The Beast, Mum's car",
+    obMakeLabel: "Make (optional)",
+    obModelLabel: "Model (optional)",
+    obMileageLabel: "Current mileage (optional)",
+    obStart: "Let's go",
+    obCancel: "Cancel",
+    obNameRequired: "Give it a name first",
+
+    switchTitle: "Pick a car",
+    switchAdd: "+ Add another car",
+    switchActive: "Active",
+    switchHint: "Tap to switch. Each car has its own records, reminders and settings.",
+    homeSwitchBtn: "Switch",
+    recordsFor: "Records ·",
+    deleteCarBtn: "Delete this car",
+    deleteCarConfirm: "Delete this car and all its records? This cannot be undone.",
+    deleteCarLast: "This is your only car. Deleting it returns you to the start screen.",
+    carSwitchBtn: "Switch to another car",
+
     homeNoCarTitle: "Welcome, new owner 👋",
     homeNoCarBody: "Add your car's details first and the oil reminders and service tracking will work themselves out. Do not know a field yet? Leave it blank and fill it in later.",
     homeNoCarBtn: "Set up my car",
@@ -167,6 +220,8 @@ const UI = {
     homeQuick: [
       ["Which oil do I buy?", "learn:oil"],
       ["How do I inflate tyres?", "learn:tyre"],
+      ["I've had an accident", "learn:accident"],
+      ["Rules for new drivers", "learn:rules"],
       ["What do petrol stations do?", "learn:station"],
       ["Licence and inspection?", "learn:admin"],
     ],
@@ -191,6 +246,7 @@ const UI = {
     oilKindNone: "Not sure / blank",
 
     learnOil: "Oil", learnStation: "Stations", learnTyre: "Tyres", learnSched: "Intervals", learnAdmin: "Admin",
+    learnAccident: "Accident", learnRules: "Rules",
     learnDisclaimer: "This is general guidance. Your car's owner manual always outranks this app — if they disagree, follow the manual, and ask a mechanic when unsure.",
     oilSecViscosity: "Reading the grade",
     oilSecTypes: "The three oil types",
