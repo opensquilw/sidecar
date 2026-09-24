@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect x="0" y="0" width="512" height="512" rx="114" ry="114" fill="#7FC4E8"/><circle cx="96" cy="118" r="40" fill="#FFE08A"/><polygon points="150,404 470,404 336,104" fill="#43A047"/><polygon points="10,404 300,404 156,132" fill="#63C062"/><rect x="0" y="434" width="512" height="266" fill="#6E7987"/><rect x="54" y="472" width="84" height="15" rx="7" fill="#FFFFFF"/><rect x="214" y="472" width="84" height="15" rx="7" fill="#FFFFFF"/><rect x="374" y="472" width="84" height="15" rx="7" fill="#FFFFFF"/><g transform="translate(0,6)">
+      <rect x="104" y="222" width="22" height="46" rx="8" fill="#111111"/>
+      <rect x="150" y="222" width="22" height="46" rx="8" fill="#111111"/>
+      <rect x="82" y="200" width="112" height="24" rx="11" fill="#111111"/>
+      <path d="M 96,300 L 100,264 C 102,250 112,242 128,242 L 168,238 L 232,196
+               C 240,190 248,188 258,188 L 300,188 C 314,188 322,194 328,206 L 348,248
+               L 420,266 C 440,272 448,284 448,300 L 448,326
+               C 448,340 438,348 424,348 L 112,348 C 100,348 96,338 96,326 Z"
+            fill="#E8402F" stroke="#111111" stroke-width="15" stroke-linejoin="round"/>
+      <path d="M 100,282 L 446,302 L 446,320 L 98,302 Z" fill="#FFFFFF"/>
+      <path d="M 246,236 L 276,200 C 280,196 286,194 292,194 L 306,194
+               C 312,194 316,198 318,204 L 330,236 Z"
+            fill="#BFD9F2" stroke="#111111" stroke-width="11" stroke-linejoin="round"/>
+      <circle cx="282" cy="218" r="10" fill="#111111"/><circle cx="312" cy="218" r="10" fill="#111111"/>
+      <circle cx="196" cy="270" r="25" fill="#FFFFFF" stroke="#111111" stroke-width="10"/>
+      <text x="196" y="280" font-family="Arial Black, Arial, Helvetica, sans-serif"
+            font-size="28" font-weight="900" text-anchor="middle" fill="#111111">07</text>
+      <circle cx="166" cy="350" r="52" fill="#111111"/><circle cx="166" cy="350" r="22" fill="#FFFFFF"/>
+      <circle cx="382" cy="350" r="46" fill="#111111"/><circle cx="382" cy="350" r="19" fill="#FFFFFF"/>
+      <rect x="424" y="276" width="30" height="22" rx="10" fill="#F0AD4E" stroke="#111111" stroke-width="10"/>
+    </g></svg>
