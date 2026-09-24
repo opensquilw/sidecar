@@ -118,6 +118,8 @@ const ICONS = {
   wash: ["f", "M7 3c2 3.2 3 4.8 3 6.2a3 3 0 1 1-6 0C4 7.8 5 6.2 7 3zm10 6c2 3.2 3 4.8 3 6.2a3 3 0 1 1-6 0c0-1.4 1-3 3-6.2z"],
   wrench: ["f", "M21.3 6.6a5.5 5.5 0 0 1-7.6 5.4L6 19.7 3.4 17l7.7-7.7a5.5 5.5 0 0 1 7.2-7.1l-3.2 3.2 2.1 2.1 3.2-3.2c.2.7.3 1.5.1 2.3z"],
   dot: ["f", "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"],
+  warn: ["f", "M12 3.2 1.6 21h20.8zM11 10h2v5h-2zm0 6.5h2V19h-2z"],
+  doc: ["f", "M6 2h8l5 5v15H6zm7 1.6V8h4.4zM8.5 12h7v1.8h-7zm0 3.6h7v1.8h-7z"],
 };
 function icon(id, size) {
   const def = ICONS[id] || ICONS.dot;
@@ -249,7 +251,7 @@ function go(screen) {
   if (screen === "home-screen") renderHome();
   if (screen === "log-screen") renderLog();
   if (screen === "learn-screen") renderLearn();
-  if (screen === "car-screen") fillCarForm();
+  if (screen === "car-screen") { renderCarSummary(); showCarForm(false); fillCarForm(); }
   if (screen === "docs-screen") renderDocs();
   if (screen === "settings-screen") renderSettings();
 }
@@ -264,39 +266,23 @@ function renderSettings() {
 /* ================= HOME ================= */
 function renderHome() {
   if (!car) { openOnboard("first"); return; }
-  const hasCar = true;
-  $("home-nocar").hidden = hasCar;
-  $("home-car-card").hidden = !hasCar;
-  $("home-mileage").hidden = !hasCar;
-  $("home-spec").hidden = !hasCar;
-  $("home-oil").hidden = !hasCar;
+  $("home-nocar").hidden = true;
+  $("home-car-card").hidden = false;
+  $("home-oil").hidden = false;
 
-  if (hasCar) {
-    const name = car.nickname || [car.make, car.model].filter(Boolean).join(" ") || t("carTitle");
-    $("hc-name").textContent = name;
-    const subBits = [];
-    if (car.nickname && (car.make || car.model)) subBits.push([car.make, car.model].filter(Boolean).join(" "));
-    if (car.year) subBits.push(car.year);
-    if (car.engine) subBits.push(car.engine);
-    $("hc-sub").textContent = subBits.join(" · ");
-    $("hc-plate").hidden = !car.plate;
-    $("hc-plate").textContent = car.plate || "";
-    $("hc-switch").hidden = false;
+  $("hc-name").textContent = carName(car);
+  const subBits = [];
+  if (car.nickname && (car.make || car.model)) subBits.push([car.make, car.model].filter(Boolean).join(" "));
+  if (car.year) subBits.push(car.year);
+  if (car.engine) subBits.push(car.engine);
+  $("hc-sub").textContent = subBits.join(" \u00b7 ");
+  $("hc-plate").hidden = !car.plate;
+  $("hc-plate").textContent = car.plate || "";
+  $("hc-switch").hidden = false;
+  $("hm-value").textContent = car.mileage != null && car.mileage !== "" ? nf(car.mileage) : "\u2014";
 
-    $("hm-value").textContent = car.mileage != null && car.mileage !== "" ? nf(car.mileage) : "—";
-    renderOilCard();
-    renderSpecCard();
-  }
-
+  renderOilCard();
   renderUpcoming();
-
-  const recent = [...recs()].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 4);
-  $("home-recent").innerHTML = recent.map(recordItemHTML).join("");
-  $("home-recent-empty").hidden = recent.length > 0;
-
-  $("home-quick").innerHTML = t("homeQuick")
-    .map(([label, target]) => `<button class="quick-btn" data-quick="${target}">${esc(label)}</button>`)
-    .join("");
 }
 
 function renderOilCard() {
@@ -356,20 +342,32 @@ function renderOilCard() {
   body.innerHTML = html;
 }
 
-function renderSpecCard() {
+function renderCarSummary() {
   const rows = [];
+  const mm = [car.make, car.model].filter(Boolean).join(" ");
+  if (mm) rows.push([LANG === "zh" ? "廠牌／型號" : "Make / model", mm + (car.year ? ` (${car.year})` : "")]);
+  if (car.plate) rows.push([t("fPlate"), car.plate]);
+  if (car.engine) rows.push([t("fEngine"), car.engine]);
+  if (car.mileage != null && car.mileage !== "") rows.push([t("fMileageNow"), nf(car.mileage) + " km"]);
   if (car.oilGrade) rows.push([t("fOilGradeCar"), car.oilGrade]);
   if (car.oilSpec) rows.push([t("fOilSpec"), car.oilSpec]);
   if (car.oilCapacity) rows.push([t("fOilCapacity"), car.oilCapacity + " L"]);
   if (car.tyreSize) rows.push([t("fTyreSize"), car.tyreSize]);
-  if (car.tyreFront || car.tyreRear) {
-    rows.push([LANG === "zh" ? "胎壓（前／後）" : "Pressure (front / rear)",
-      `${car.tyreFront || "—"} / ${car.tyreRear || "—"} psi`]);
-  }
-  $("hs-body").innerHTML = rows.length
-    ? rows.map(([k, v]) => `<div class="spec-row"><span>${esc(k)}</span><span>${esc(v)}</span></div>`).join("")
-    : `<p class="muted" style="margin:8px 0 0">${esc(t("homeSpecEmpty"))}
-        <button class="link-btn" data-goto="car-screen" style="margin-left:6px">${esc(t("homeSpecFill"))}</button></p>`;
+  if (car.tyreFront || car.tyreRear)
+    rows.push([LANG === "zh" ? "胎壓（前／後）" : "Pressure (front / rear)", `${car.tyreFront || "\u2014"} / ${car.tyreRear || "\u2014"} psi`]);
+  if (car.licenceExpiry) rows.push([t("fLicenceExp"), fmtDate(car.licenceExpiry)]);
+  if (car.insuranceExpiry) rows.push([t("fInsuranceExp"), fmtDate(car.insuranceExpiry)]);
+  if (car.inspectionDue) rows.push([t("fInspectionDue"), fmtDate(car.inspectionDue)]);
+  $("car-summary").innerHTML = rows.map(([k, v]) =>
+    `<div class="spec-row"><span>${esc(k)}</span><span>${esc(v)}</span></div>`).join("");
+  /* nudge until the fields that drive reminders are filled */
+  $("car-summary-hint").hidden = !!(car.oilGrade && car.licenceExpiry && (car.tyreFront || car.tyreRear));
+}
+
+function showCarForm(edit) {
+  $("car-view").hidden = edit;
+  $("car-form").hidden = !edit;
+  if (edit) fillCarForm();
 }
 
 function renderUpcoming() {
@@ -549,11 +547,25 @@ function saveRec(e) {
 }
 
 /* ================= LEARN ================= */
-let learnTab = "oil";
+let learnTab = null;                 // null = topic list
+const TOPIC_ORDER = ["accident", "rules", "oil", "tyre", "station", "admin", "sched"];
+const TOPIC_ICON = { accident: "warn", rules: "align", oil: "oil", tyre: "tyre", station: "fuel", admin: "doc", sched: "gear" };
 
 function renderLearn() {
-  document.querySelectorAll("#learn-tabs .seg-btn").forEach((b) =>
-    b.classList.toggle("active", b.dataset.tab === learnTab));
+  const list = $("learn-list"), topic = $("learn-topic");
+  if (!learnTab) {
+    list.hidden = false; topic.hidden = true;
+    const T = t("topics");
+    $("topic-list").innerHTML = TOPIC_ORDER.map((id) => `
+      <button type="button" class="topic-card${id === "accident" ? " urgent" : ""}" data-tab="${id}">
+        <span class="rec-icon">${icon(TOPIC_ICON[id], 20)}</span>
+        <span class="topic-main"><span class="topic-title">${esc(T[id][0])}</span>
+          <span class="topic-sub">${esc(T[id][1])}</span></span>
+      </button>`).join("");
+    return;
+  }
+  list.hidden = true; topic.hidden = false;
+  $("learn-topic-title").textContent = t("topics")[learnTab] ? t("topics")[learnTab][0] : "";
   const body = $("learn-body");
   body.innerHTML =
     learnTab === "oil" ? learnOilHTML() :
@@ -722,26 +734,18 @@ function learnAccidentHTML() {
   const numbers = `<div class="def-list">${A.numbers.map(([k, v]) =>
     `<div class="def-item"><div class="def-k" style="font-family:var(--mono);font-size:19px;letter-spacing:1px">${esc(k)}</div>
       <div class="def-v">${esc(v)}</div></div>`).join("")}</div>`;
-  const group = (title) => `<h3 class="section-title">${esc(title)}</h3>`;
+  const sub = (title, inner) => `<h4>${esc(title)}</h4>${inner}`;
   return `<p class="muted" style="margin-top:0">${esc(A.lead)}</p>
-    <button type="button" class="btn btn-primary full" data-quick="docs" style="margin:0 0 6px">${esc(A.docsBtn)}</button>` +
-    group(A.minorGroup) +
-    acc(A.stopTitle, steps(A.stop), true) +
-    group(A.crashGroup) +
-    acc(A.crashFirstTitle, steps(A.crashFirst)) +
-    acc(A.injuredTitle, defs(A.injured)) +
-    acc(A.hitRunTitle, defs(A.hitRun)) +
-    acc(A.crashAfterTitle, defs(A.crashAfter)) +
-    group(A.paperGroup) +
-    acc(A.reportTitle, defs(A.report)) +
-    acc(A.exchangeTitle, bullets(A.exchange)) +
-    acc(A.photoTitle, bullets(A.photo)) +
-    acc(A.dontTitle, defs(A.dont)) +
-    acc(A.afterTitle, defs(A.after)) +
-    group(A.otherGroup) +
-    acc(A.breakdownTitle, bullets(A.breakdown)) +
-    acc(A.kitTitle, bullets(A.kit)) +
-    acc(A.numbersTitle, numbers);
+    <button type="button" class="btn btn-primary full" data-quick="docs" style="margin:0 0 12px">${esc(A.docsBtn)}</button>` +
+    acc(A.minorGroup, steps(A.stop), true) +
+    acc(A.crashGroup,
+      sub(A.crashFirstTitle, steps(A.crashFirst)) + sub(A.injuredTitle, defs(A.injured)) +
+      sub(A.hitRunTitle, defs(A.hitRun)) + sub(A.crashAfterTitle, defs(A.crashAfter))) +
+    acc(A.paperGroup,
+      sub(A.reportTitle, defs(A.report)) + sub(A.exchangeTitle, bullets(A.exchange)) +
+      sub(A.photoTitle, bullets(A.photo)) + sub(A.dontTitle, defs(A.dont)) + sub(A.afterTitle, defs(A.after))) +
+    acc(A.otherGroup,
+      sub(A.breakdownTitle, bullets(A.breakdown)) + sub(A.kitTitle, bullets(A.kit)) + sub(A.numbersTitle, numbers));
 }
 
 function learnRulesHTML() {
@@ -1415,7 +1419,10 @@ document.addEventListener("click", (e) => {
   if (btn.id === "dv-close") return closeDocViewer();
   if (btn.id === "dv-delete") return deleteViewingDoc();
   if (btn.id === "df-pick-btn") return $("df-file").click();
-  if (btn.id === "home-car-card" || btn.id === "car-switch-btn") return openSwitcher();
+  if (btn.id === "car-switch-open" || btn.id === "car-switch-btn") return openSwitcher();
+  if (btn.id === "car-edit-btn") return showCarForm(true);
+  if (btn.id === "car-cancel-btn") return showCarForm(false);
+  if (btn.id === "learn-back") { learnTab = null; return renderLearn(); }
   if (btn.id === "car-switch-close") return closeSwitcher();
   if (btn.id === "car-add-btn") { closeSwitcher(); return openOnboard("add"); }
   if (btn.dataset.switchCar) {
@@ -1423,7 +1430,7 @@ document.addEventListener("click", (e) => {
     closeSwitcher();
     return go(currentScreen);
   }
-  if (btn.dataset.screen) return go(btn.dataset.screen);
+  if (btn.dataset.screen) { if (btn.dataset.screen === "learn-screen") learnTab = null; return go(btn.dataset.screen); }
   if (btn.dataset.goto) return go(btn.dataset.goto);
   if (btn.dataset.addtype) return openRecForm(null, btn.dataset.addtype);
   if (btn.dataset.rec) return openRecForm(btn.dataset.rec);

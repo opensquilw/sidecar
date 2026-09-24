@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 <link rel="icon" href="icons/icon-192.png" />
 <link rel="icon" sizes="32x32" href="icons/favicon-32.png" />
-<link rel="stylesheet" href="style.css?v=14" />
+<link rel="stylesheet" href="style.css?v=17" />
 </head>
 <body>
 
@@ -63,26 +63,25 @@
       <button class="btn btn-primary" data-goto="car-screen" data-i18n="homeNoCarBtn">設定我部車</button>
     </div>
 
-    <button id="home-car-card" class="car-card" type="button" hidden>
-      <div class="car-card-main">
-        <div class="car-card-name" id="hc-name">—</div>
-        <div class="car-card-sub" id="hc-sub"></div>
-      </div>
-      <div class="car-card-right">
-        <div class="car-card-plate" id="hc-plate" hidden></div>
-        <div class="car-card-switch" id="hc-switch" hidden>
-          <span data-i18n="homeSwitchBtn">切換</span>
-          <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+    <div id="home-car-card" class="car-card" hidden>
+      <button type="button" class="car-card-head" id="car-switch-open">
+        <div class="car-card-main">
+          <div class="car-card-name" id="hc-name">—</div>
+          <div class="car-card-sub" id="hc-sub"></div>
         </div>
+        <div class="car-card-right">
+          <div class="car-card-plate" id="hc-plate" hidden></div>
+          <div class="car-card-switch" id="hc-switch" hidden>
+            <span data-i18n="homeSwitchBtn">切換</span>
+            <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+          </div>
+        </div>
+      </button>
+      <div class="car-card-odo">
+        <span class="ro-k">ODO</span>
+        <span class="odo-value"><span id="hm-value">0</span> <span class="unit">km</span></span>
+        <button id="hm-update" class="btn btn-ghost" data-i18n="homeMileageUpdate">更新</button>
       </div>
-    </button>
-
-    <div id="home-mileage" class="card mileage-card" hidden>
-      <div>
-        <div class="card-label" data-i18n="homeMileageTitle">現時里數</div>
-        <div class="mileage-value"><span id="hm-value">0</span> <span class="unit" data-i18n="unitKm">公里</span></div>
-      </div>
-      <button id="hm-update" class="btn btn-ghost" data-i18n="homeMileageUpdate">更新</button>
     </div>
 
     <div id="home-oil" class="card oil-card" hidden>
@@ -93,24 +92,9 @@
       <div id="ho-body"></div>
     </div>
 
-    <div id="home-spec" class="card spec-card" hidden>
-      <div class="card-label" data-i18n="homeSpecTitle">我部車用邊隻油</div>
-      <div id="hs-body"></div>
-    </div>
-
     <h2 class="section-title" data-i18n="homeUpcomingTitle">跟進事項</h2>
     <ul id="home-upcoming" class="record-list"></ul>
     <p id="home-upcoming-empty" class="empty-msg" data-i18n="homeUpcomingEmpty" hidden></p>
-
-    <div class="section-head">
-      <h2 class="section-title" data-i18n="homeRecentTitle">最近記錄</h2>
-      <button class="link-btn" data-goto="log-screen" data-i18n="homeSeeAll">全部</button>
-    </div>
-    <ul id="home-recent" class="record-list"></ul>
-    <p id="home-recent-empty" class="empty-msg" data-i18n="homeRecentEmpty" hidden></p>
-
-    <h2 class="section-title" data-i18n="homeQuickTitle">新手快速指引</h2>
-    <div id="home-quick" class="quick-grid"></div>
   </section>
 
   <!-- ===== LOG ===== -->
@@ -195,17 +179,19 @@
 
   <!-- ===== LEARN ===== -->
   <section id="learn-screen" class="screen" hidden>
-    <div class="seg-row" id="learn-tabs">
-      <button class="seg-btn active" data-tab="oil" data-i18n="learnOil">機油</button>
-      <button class="seg-btn" data-tab="station" data-i18n="learnStation">油站</button>
-      <button class="seg-btn" data-tab="tyre" data-i18n="learnTyre">車胎</button>
-      <button class="seg-btn" data-tab="sched" data-i18n="learnSched">週期</button>
-      <button class="seg-btn" data-tab="admin" data-i18n="learnAdmin">手續</button>
-      <button class="seg-btn" data-tab="accident" data-i18n="learnAccident">意外</button>
-      <button class="seg-btn" data-tab="rules" data-i18n="learnRules">守則</button>
+    <div id="learn-list">
+      <h2 style="margin:0 0 4px" data-i18n="navLearn">學堂</h2>
+      <p class="hint" style="margin-top:0" data-i18n="learnPick"></p>
+      <div id="topic-list" class="topic-list"></div>
     </div>
-    <p class="disclaimer" data-i18n="learnDisclaimer"></p>
-    <div id="learn-body"></div>
+    <div id="learn-topic" hidden>
+      <div class="topic-head">
+        <button type="button" class="link-btn" id="learn-back" data-i18n="learnBack">← 學堂</button>
+        <h2 id="learn-topic-title"></h2>
+      </div>
+      <p class="disclaimer" data-i18n="learnDisclaimer"></p>
+      <div id="learn-body"></div>
+    </div>
   </section>
 
   <!-- ===== STATION FORM ===== -->
@@ -278,12 +264,23 @@
 
   <!-- ===== MY CAR ===== -->
   <section id="car-screen" class="screen" hidden>
-    <form id="car-form">
-      <div class="section-head" style="margin-top:0">
-        <h2 style="margin:0" data-i18n="carTitle">我的車</h2>
-        <button type="button" class="link-btn" id="car-switch-btn" data-i18n="carSwitchBtn">轉去另一部車</button>
-      </div>
+    <div class="section-head" style="margin-top:0">
+      <h2 style="margin:0" data-i18n="carTitle">我的車</h2>
+      <button type="button" class="link-btn" id="car-switch-btn" data-i18n="carSwitchBtn">轉去另一部車</button>
+    </div>
 
+    <div id="car-view">
+      <div id="car-summary" class="card spec-card"></div>
+      <p id="car-summary-hint" class="hint" data-i18n="carSummaryHint" hidden></p>
+      <button type="button" id="car-edit-btn" class="btn btn-primary full" style="margin-top:0" data-i18n="carEditBtn">編輯資料</button>
+      <button type="button" id="car-docs-btn" class="btn btn-secondary full">
+        <span data-i18n="docsOpenBtn">我的文件</span> <span id="car-docs-count" class="title-tag"></span>
+      </button>
+      <button id="cal-export-btn" class="btn btn-secondary full" data-i18n="calExportBtn">加入手機日曆</button>
+      <p class="hint" data-i18n="notifyHint"></p>
+    </div>
+
+    <form id="car-form" hidden>
       <h3 class="section-title" data-i18n="carSecBasic">基本資料</h3>
       <div class="field-row">
         <div class="field-col">
@@ -387,23 +384,15 @@
       <input id="cf-inspection" type="date" />
 
       <div class="form-actions">
+        <button type="button" id="car-cancel-btn" class="btn btn-secondary" data-i18n="btnCancel">取消</button>
         <button type="submit" class="btn btn-primary" data-i18n="btnSave">儲存</button>
       </div>
+
+      <div class="danger-zone">
+        <h3 data-i18n="dangerZone">危險區域</h3>
+        <button type="button" id="delete-car-btn" class="btn btn-danger" data-i18n="deleteCarBtn">刪除呢部車</button>
+      </div>
     </form>
-
-    <h3 class="section-title" data-i18n="carSecDocs">文件</h3>
-    <button type="button" id="car-docs-btn" class="btn btn-secondary full" style="margin-top:0">
-      <span data-i18n="docsOpenBtn">我的文件</span> <span id="car-docs-count" class="title-tag"></span>
-    </button>
-
-    <h3 class="section-title" data-i18n="carSecNotify">提醒</h3>
-    <p class="hint" data-i18n="notifyHint"></p>
-    <button id="cal-export-btn" class="btn btn-primary full" data-i18n="calExportBtn">加入手機日曆</button>
-
-    <div class="danger-zone">
-      <h3 data-i18n="dangerZone">危險區域</h3>
-      <button id="delete-car-btn" class="btn btn-danger" data-i18n="deleteCarBtn">刪除呢部車</button>
-    </div>
   </section>
 
   <!-- ===== SETTINGS ===== -->
@@ -489,8 +478,12 @@
   </div>
 </div>
 
-<button id="chat-fab" class="chat-fab" aria-label="Assistant" hidden>
-  <svg viewBox="0 0 24 24" width="26" height="26"><path fill="currentColor" d="M12 3C7 3 3 6.6 3 11c0 2.3 1.1 4.3 2.9 5.7L5 21l4.6-2.1c.8.2 1.6.3 2.4.3 5 0 9-3.6 9-8s-4-8-9-8zm-4 9.3a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm4 0a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6zm4 0a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z"/></svg>
+<button id="chat-fab" class="chat-fab" aria-label="Help" hidden>
+  <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+    <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.6"/>
+    <path d="M9.4 9.4 5.8 5.8M14.6 9.4l3.6-3.6M9.4 14.6l-3.6 3.6M14.6 14.6l3.6 3.6"/>
+  </svg>
+  <span class="chat-fab-label" data-i18n="helpFab">求助</span>
 </button>
 
 <div id="chat-modal" class="modal chat-modal" hidden>
@@ -544,9 +537,9 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="config.js?v=14"></script>
-<script src="data.js?v=14"></script>
-<script src="i18n.js?v=14"></script>
-<script src="app.js?v=14"></script>
+<script src="config.js?v=17"></script>
+<script src="data.js?v=17"></script>
+<script src="i18n.js?v=17"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>
