@@ -3,7 +3,9 @@
 /* ---------- storage ---------- */
 const K = {
   cars: "cm_cars", active: "cm_active", recs: "cm_records", stations: "cm_stations",
-  theme: "cm_theme", legacyCar: "cm_car",
+  /* cm_theme_choice, not cm_theme: the old key was written on every boot, so it
+     held "dark" for anyone who never picked a theme. Only a tap writes this one. */
+  theme: "cm_theme_choice", legacyCar: "cm_car",
 };
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -1545,9 +1547,9 @@ function switchLang(lang) {
 /* ---------- theme ---------- */
 let THEME = localStorage.getItem(K.theme) || "light";
 
-function applyTheme(theme) {
+function applyTheme(theme, save = true) {
   THEME = theme;
-  localStorage.setItem(K.theme, theme);
+  if (save) localStorage.setItem(K.theme, theme);
   document.documentElement.setAttribute("data-theme", theme);
   const meta = document.querySelector('meta[name="theme-color"]');
   const BAR = { dark: "#0A0C10", light: "#EEF1F6", macaron: "#F8F1F5" };
@@ -1557,7 +1559,7 @@ function applyTheme(theme) {
 }
 
 /* ---------- boot ---------- */
-applyTheme(THEME);
+applyTheme(THEME, false);
 setLang(LANG);
 applyI18n();
 if (car) go("home-screen"); else openOnboard("first");

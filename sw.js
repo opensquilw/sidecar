@@ -1,12 +1,12 @@
-const CACHE_NAME = "sidecar-v19";
+const CACHE_NAME = "sidecar-v20";
 const ASSETS = [
   "./",
   "./index.html",
-  "./style.css?v=19",
-  "./i18n.js?v=19",
-  "./config.js?v=19",
-  "./data.js?v=19",
-  "./app.js?v=19",
+  "./style.css?v=20",
+  "./i18n.js?v=20",
+  "./config.js?v=20",
+  "./data.js?v=20",
+  "./app.js?v=20",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
