@@ -1543,7 +1543,7 @@ function switchLang(lang) {
 }
 
 /* ---------- theme ---------- */
-let THEME = localStorage.getItem(K.theme) || "dark";
+let THEME = localStorage.getItem(K.theme) || "light";
 
 function applyTheme(theme) {
   THEME = theme;
