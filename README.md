@@ -27,3 +27,20 @@ python3 -m http.server 8913 --directory .
 `node bump.mjs` after **every** edit to js/css — it stamps `?v=N` in index.html and sw.js plus `CACHE_NAME`, and fails if they disagree. Skipping it serves stale files to browsers and to the service worker, which looks exactly like a bug that isn't one.
 
 `node build-reference.mjs` after editing `data.js` — regenerates `reference.txt`, the AI assistant's grounding. Commit both.
+
+## iOS app (App Store)
+
+The same files run inside a native shell built with [Capacitor](https://capacitorjs.com). `ios/` is the Xcode project; `native.js` is the only app code that knows about it, and it does nothing in a browser. Inside the app it:
+
+- mirrors `localStorage` and the IndexedDB documents to native storage, and restores them if iOS clears the WebView's data;
+- schedules real reminders (14 days, 3 days and on the day, at 9am) instead of on-open notifications;
+- sends the calendar file, backup and documents to the share sheet, because a WebView can't download.
+
+Build on a Mac with Xcode installed:
+
+```
+npm install
+npm run ios        # copies the web files into www/, syncs ios/, opens Xcode
+```
+
+After editing any web file, run `node bump.mjs` as usual, then `npm run ios` again. `www/` and `ios/App/App/public/` are generated; don't edit them. `privacy.html` is the privacy policy the App Store listing links to.

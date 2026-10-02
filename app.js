@@ -788,7 +788,7 @@ function idbReq(mode, fn) {
 }
 const docsAll = () => idbReq("readonly", (st) => st.getAll()).catch(() => []);
 const docPut = (d) => idbReq("readwrite", (st) => st.put(d));
-const docDel = (id) => idbReq("readwrite", (st) => st.delete(id));
+const docDel = (id) => idbReq("readwrite", (st) => st.delete(id)).then((r) => { nativeDocDeleted(id); return r; });
 const docsForCar = async (carId) => (await docsAll()).filter((d) => d.carId === carId);
 async function docsDeleteForCar(carId) {
   const ds = await docsForCar(carId);
@@ -870,6 +870,7 @@ async function saveDoc(e) {
   };
   try {
     await docPut(d);
+    nativeDocSaved(d).catch(() => {});
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   } catch { toast(t("docStorageFail")); return; }
   toast(t("docSaved"));
@@ -899,6 +900,14 @@ function closeDocViewer() {
   $("dv-body").innerHTML = "";
   viewingDoc = null;
 }
+/* In the iOS app a blob link can't download or open a new tab: hand the
+   file to the share sheet (Save to Files, Print, AirDrop, Quick Look). */
+["dv-open", "dv-download"].forEach((id) => $(id).addEventListener("click", (e) => {
+  if (!NATIVE || !viewingDoc) return;
+  e.preventDefault();
+  nativeShareFile($("dv-download").download, viewingDoc.blob);
+}));
+
 async function deleteViewingDoc() {
   if (!viewingDoc || !confirm(t("docDeleteConfirm"))) return;
   await docDel(viewingDoc.id);
@@ -1336,6 +1345,7 @@ function exportICS() {
   const items = dueDatedItems().filter((it) => daysBetween(todayISO(), it.date) >= 0);
   if (!items.length) { toast(t("calNothing")); return; }
   const blob = new Blob([buildICS(items)], { type: "text/calendar;charset=utf-8" });
+  if (NATIVE) { nativeShareFile("sidecar-reminders.ics", blob); return; }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "sidecar-reminders.ics";
@@ -1344,30 +1354,33 @@ function exportICS() {
   toast(t("calDone"));
 }
 
-function notifSupported() { return "Notification" in window; }
+function notifSupported() { return NATIVE || "Notification" in window; }
+const notifPerm = () => (NATIVE ? nativeNotifPerm : Notification.permission);
 
 function updateNotifUI() {
   const el = $("notif-status");
   if (!el) return;
   let txt = t("notifStatusOff"), cls = "ro-v dim";
   if (!notifSupported()) { txt = t("notifUnsupported"); }
-  else if (Notification.permission === "granted") { txt = t("notifStatusOn"); cls = "ro-v"; }
-  else if (Notification.permission === "denied") { txt = t("notifBlocked"); cls = "ro-v warn"; }
+  else if (notifPerm() === "granted") { txt = t("notifStatusOn"); cls = "ro-v"; }
+  else if (notifPerm() === "denied") { txt = t("notifBlocked"); cls = "ro-v warn"; }
   el.textContent = txt;
   el.className = cls;
   const btn = $("notif-enable-btn");
-  if (btn) btn.hidden = !notifSupported() || Notification.permission !== "default";
+  if (btn) btn.hidden = !notifSupported() || notifPerm() !== "default";
 }
 
 async function enableNotifications() {
   if (!notifSupported()) { toast(t("notifUnsupported")); return; }
-  try { await Notification.requestPermission(); } catch { /* older callback-only API */ }
+  if (NATIVE) await nativeNotifRequest();
+  else try { await Notification.requestPermission(); } catch { /* older callback-only API */ }
   updateNotifUI();
-  if (Notification.permission === "granted") notifyIfDue(true);
+  if (notifPerm() === "granted") notifyIfDue(true);
 }
 
 /* Fires on open: at most once a day unless forced. */
 async function notifyIfDue(force) {
+  if (NATIVE) return scheduleReminders();
   if (!notifSupported() || Notification.permission !== "granted") return;
 
   const soon = dueDatedItems().filter((it) => daysBetween(todayISO(), it.date) <= 30);
@@ -1400,6 +1413,17 @@ async function notifyIfDue(force) {
     if (reg && reg.showNotification) await reg.showNotification(t("notifTitle"), opts);
     else new Notification(t("notifTitle"), opts);
   } catch { /* permission can be revoked between check and show */ }
+}
+
+/* In the iOS app reminders are scheduled ahead of time, so they arrive even
+   if the app is never opened. Re-planned on launch and whenever the app goes
+   to the background, which catches every edit to records or dates. */
+function scheduleReminders() {
+  const items = dueDatedItems().map((it) => ({ ...it, title: carLabel() + " — " + it.title }));
+  return nativeSchedule(items, {
+    title: t("notifTitle"),
+    body: (it, n) => it.title + " — " + (n ? `${n} ${t("homeDaysLeft")}` : t("notifDueToday")),
+  });
 }
 
 /* ================= EVENTS ================= */
@@ -1520,6 +1544,7 @@ $("export-btn").addEventListener("click", async () => {
     docs.push({ ...meta, data: await blobToDataURL(b) });
   }
   const blob = new Blob([JSON.stringify({ cars, activeId, records, stations, docs }, null, 2)], { type: "application/json" });
+  if (NATIVE) { nativeShareFile("sidecar-backup.json", blob); return; }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "sidecar-backup.json";
@@ -1554,6 +1579,8 @@ function applyTheme(theme, save = true) {
   const meta = document.querySelector('meta[name="theme-color"]');
   const BAR = { dark: "#0A0C10", light: "#EEF1F6", macaron: "#F8F1F5" };
   if (meta) meta.setAttribute("content", BAR[theme] || BAR.dark);
+  /* iOS app: dark status-bar text on the light themes, light text on dark */
+  if (NATIVE) NP.StatusBar.setStyle({ style: theme === "dark" ? "DARK" : "LIGHT" }).catch(() => {});
   document.querySelectorAll("[data-theme-btn]").forEach((b) =>
     b.classList.toggle("active", b.dataset.themeBtn === theme));
 }
@@ -1564,8 +1591,14 @@ setLang(LANG);
 applyI18n();
 if (car) go("home-screen"); else openOnboard("first");
 
-notifyIfDue(false);
+if (NATIVE) {
+  nativeSyncDocs(docsAll, docPut).then((restored) => { if (restored && currentScreen === "docs-screen") renderDocs(); });
+  nativeNotifRefresh().then(() => { updateNotifUI(); scheduleReminders(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) scheduleReminders(); });
+} else {
+  notifyIfDue(false);
+}
 
-if ("serviceWorker" in navigator) {
+if ("serviceWorker" in navigator && !NATIVE) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 }
