@@ -1,0 +1,14 @@
+{
+  "appId": "hk.sidecar.app",
+  "appName": "Sidecar",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#EEF1F6"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "presentationOptions": ["banner", "sound", "list"]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "sidecar",
+  "private": true,
+  "description": "Sidecar 車伴 — the iOS app shell. The web app itself has no build step; see README.",
+  "scripts": {
+    "www": "node build-www.mjs",
+    "ios": "node build-www.mjs && cap sync ios && cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/filesystem": "^8.1.3",
+    "@capacitor/ios": "^8.5.2",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/share": "^8.0.3",
+    "@capacitor/status-bar": "^8.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2"
+  }
+}
